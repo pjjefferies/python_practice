@@ -69,11 +69,5 @@ class InterpreterTestMethods(unittest.TestCase):
             self.assertEqual(result, answer)
 
 
-"""
-"""
 if __name__ == '__main__':
     unittest.main()
-
-    foo = (factorial(8)/(2*2*2)+factorial(8)/(3*2*2)+factorial(7)/(2*2)+
-           factorial(7)/(3*2)+factorial(6)/(2*2)+factorial(5)/(2)+
-           factorial(2)+1)  # result for BOOKKEEPER
