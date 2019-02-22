@@ -16,16 +16,10 @@ def train_crash(track, a_train, a_train_pos, b_train, b_train_pos, limit):
     a_track.add_train(train_a)
     a_track.add_train(train_b)
 
-    if a_track.detect_crash():
-        return 0
-
-    time = 1
-    while time <= limit:
-        print('\ntime:', time, 'of', limit)
-        found_a_crash = a_track.time_increment()
-        if found_a_crash:
+    for time in range(limit + 1):
+        if a_track.detect_crash():
             return time
-        time += 1
+        a_track.time_increment()
     return -1
 
 
@@ -33,19 +27,8 @@ class Track_space():
     def __init__(self, shape, dir_in, x_loc, y_loc):
         self.x = x_loc
         self.y = y_loc
-        self.shape = shape
         self.dir_in = dir_in
-        self.station = self.shape == 'S'
-        # self.crossing = self.shape == '+'
-    """
-    def __eq__(self, other):
-        try:
-            return (self.x == other.x and
-                    self.y == other.y and
-                    self.dir_in == other.dir_in)
-        except AttributeError:
-            return False
-    """
+        self.station = shape == 'S'
 
 
 class Track():
@@ -64,27 +47,10 @@ class Track():
         self.track_matrix.append(' ' * (width))
         new_x, new_y = None, None
 
-        # while loop dev safety
-        element_count = sum([1 for row in self.track_matrix
-                             for ele in row if ele != ' '])
-        intersection_count = sum([1 for row in self.track_matrix
-                                  for ele in row if ele in '+X'])
-        safety_count = 0
-        max_iter = (element_count + intersection_count) * 1.1
         while (new_x != self.start[0] or new_y != self.start[1]):
-            # print('new_x, new_y:', new_x, new_y)
-            # print('  self.start:', self.start)
-            if safety_count > max_iter:
-                break
-            else:
-                safety_count += 1
-            # la_tr_sp_sh = self.track_seq[-1].shape
             la_tr_sp_dir = self.track_seq[-1].dir_in
             la_tr_sp_x = self.track_seq[-1].x
             la_tr_sp_y = self.track_seq[-1].y
-            # print('len(self.track_seq), la_tr_sp_x, la_tr_sp_y,
-            #        la_tr_sp_dir:', len(self.track_seq), la_tr_sp_x,
-            #        la_tr_sp_y, la_tr_sp_dir)
             if la_tr_sp_dir == 'sw':
                 if (self.track_matrix[la_tr_sp_y][la_tr_sp_x - 1]
                         in ('-', 'S', '+')):
@@ -258,20 +224,6 @@ class Track():
                                               new_x, new_y))
         self.track_seq = self.track_seq[:-1]
         self.steps = len(self.track_seq)
-        # print('self.steps:', self.steps)
-
-        # Find intersections
-        self.intersections = {}
-        inter_seq = 1
-        track_coords = [(ts.x, ts.y) for ts in self.track_seq]
-        for track_seq_no, a_track_coord in enumerate(track_coords):
-            try:
-                intersection = (track_coords[track_seq_no + 1:].index(
-                                a_track_coord))
-                self.intersections[intersection] = inter_seq
-                self.intersections[track_seq_no] = inter_seq
-            except ValueError:
-                pass
 
     def add_train(self, train):
         self.trains.append(train)
@@ -279,8 +231,6 @@ class Track():
     def time_increment(self):
         # move trains
         for a_train_no, a_train in enumerate(self.trains):
-            # print(a_train_no, a_train, self.track_seq[a_train.pos].x,
-            #       self.track_seq[a_train.pos].y)
             if not self.trains[a_train_no].station_delay:
                 self.trains[a_train_no].pos = (
                     (self.trains[a_train_no].pos + a_train.incr) % self.steps)
@@ -290,16 +240,8 @@ class Track():
                     self.trains[a_train_no].station_delay = (a_train.length -
                                                              1)
             else:
-                # print('still at station')
                 self.trains[a_train_no].station_delay = (
                     self.trains[a_train_no].station_delay - 1)
-            # print('a_train.pos:', a_train.pos)
-            # print('len(self.track_matrix):', len(self.track_matrix))
-
-        if self.detect_crash():
-            return True
-
-        return False  # if no crack
 
     def detect_crash(self):
         train_pos = []
@@ -310,12 +252,8 @@ class Track():
                                    self.steps)
                 train_pos.append((self.track_seq[a_train_car_pos].x,
                                   self.track_seq[a_train_car_pos].y))
-        print('train_pos:', train_pos)
-        if max(Counter(train_pos).values()) > 1:
-            # print('crash. Train Pos:', train_pos)
-            return True  # We have a crack
-        else:
-            return False
+
+        return max(Counter(train_pos).values()) > 1
 
 
 class Train():
@@ -335,16 +273,6 @@ class Train():
         self.station_delay = 0
         self.length = len(train_str)
         self.pos = start_pos
-
-    """
-    def __str__(self):
-        return ('Train Str.: ' + self.train_str + ', Start Pos.: ' +
-                str(self.start_pos) + ', Incr.: ' + str(self.incr) +
-                ', Car Incr.: ' + str(self.car_incr) + ', Exp.: '
-                + str(self.express) + ', Sta. Delay: '
-                + str(self.station_delay) + ', Len.: ' + str(self.length) +
-                ', Pos.: ' + str(self.pos))
-    """
 
 
 class TestMethods(unittest.TestCase):
@@ -387,7 +315,7 @@ class TestMethods(unittest.TestCase):
 """
 
 
-    tests = {# (TRACK_EX1, "Aaaa", 147, "Bbbbbbbbbbb", 288, 1000): 516,
+    tests = {(TRACK_EX1, "Aaaa", 147, "Bbbbbbbbbbb", 288, 1000): 516,
              (TRACK_EX2, "aaaA", 22, "bbbbB", 0, 16): 16
              }
 
