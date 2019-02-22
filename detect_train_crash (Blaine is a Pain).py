@@ -273,6 +273,10 @@ class Track():
         self.trains.append(train)
 
     def time_increment(self):
+        # Check for crash before starting
+        if self.detect_crash():
+            return True
+
         # move trains
         for a_train_no, a_train in enumerate(self.trains):
             # print(a_train_no, a_train, self.track_seq[a_train.pos].x,
