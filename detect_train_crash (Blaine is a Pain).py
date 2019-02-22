@@ -15,9 +15,13 @@ def train_crash(track, a_train, a_train_pos, b_train, b_train_pos, limit):
     train_b = Train(b_train, b_train_pos)
     a_track.add_train(train_a)
     a_track.add_train(train_b)
+
+    if a_track.detect_crash():
+        return 0
+
     time = 1
-    while time < limit:
-        # print('\ntime:', time, 'of', limit)
+    while time <= limit:
+        print('\ntime:', time, 'of', limit)
         found_a_crash = a_track.time_increment()
         if found_a_crash:
             return time
@@ -273,10 +277,6 @@ class Track():
         self.trains.append(train)
 
     def time_increment(self):
-        # Check for crash before starting
-        if self.detect_crash():
-            return True
-
         # move trains
         for a_train_no, a_train in enumerate(self.trains):
             # print(a_train_no, a_train, self.track_seq[a_train.pos].x,
@@ -310,6 +310,7 @@ class Track():
                                    self.steps)
                 train_pos.append((self.track_seq[a_train_car_pos].x,
                                   self.track_seq[a_train_car_pos].y))
+        print('train_pos:', train_pos)
         if max(Counter(train_pos).values()) > 1:
             # print('crash. Train Pos:', train_pos)
             return True  # We have a crack
@@ -348,7 +349,7 @@ class Train():
 
 class TestMethods(unittest.TestCase):
 
-    TRACK_EX = """\
+    TRACK_EX1 = """\
                                 /------------\\
 /-------------\\                /             |
 |             |               /              S
@@ -373,7 +374,21 @@ class TestMethods(unittest.TestCase):
               \\----------------------------/ 
 """
 
-    tests = {(TRACK_EX, "Aaaa", 147, "Bbbbbbbbbbb", 288, 1000): 516
+    TRACK_EX2 = """\
+/-------\\ 
+|       | 
+|       | 
+|       | 
+\\-------+--------\\
+        |        |
+        S        |
+        |        |
+        \\--------/
+"""
+
+
+    tests = {# (TRACK_EX1, "Aaaa", 147, "Bbbbbbbbbbb", 288, 1000): 516,
+             (TRACK_EX2, "aaaA", 22, "bbbbB", 0, 16): 16
              }
 
     def test_basic(self):
