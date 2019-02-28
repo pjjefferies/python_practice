@@ -16,14 +16,28 @@ def break_evil_pieces(shape):
                        for line in shape.strip('\n').splitlines()])
     rows, cols = matrix.shape
 
-    inside_full_cell = find_internal_full_cells(matrix)
+    inside_full_cells = find_internal_full_cells(matrix)
     print('matrix:\n', matrix)
-    # print('inside_full_cell:', inside_full_cell)
+    print('inside_full_cells:', inside_full_cells)
+
     inside_full_groups, border_cells = (
-        find_internal_full_groups(matrix, inside_full_cell))
+        find_internal_full_groups(matrix, inside_full_cells))
     print('inside_full_groups:', inside_full_groups)
     print('border_cells:', border_cells)
-    shape_paths = find_shape_paths(matrix, border_cells)
+
+    inside_half_cells = find_internal_half_cells(matrix)
+    print('inside_half_cells:', inside_full_cells)
+
+    inside_groups, border_cells = (
+        find_internal_full_groups(matrix,
+                                  inside_full_cells,
+                                  inside_half_cells,
+                                  inside_full_groups,
+                                  border_cells))
+    print('inside_groups:', inside_groups)
+    print('border_cells:', border_cells)
+
+    border_cells = crop_shift_cells(border_cells)
 
 
 
@@ -55,6 +69,7 @@ def find_internal_full_groups(matrix, internal_cells):
         group_border_cells = []
         while new_group_search:
             a_cell = new_group_search.pop(0)
+            # Look for connected open space
             for direct in [[-1, 0], [0, 1], [1, 0], [0, -1]]:
                 test_pos = [a_cell[0] + direct[0],a_cell[1] + direct[1]]
                 # print('test_pos:', test_pos)
@@ -66,12 +81,14 @@ def find_internal_full_groups(matrix, internal_cells):
                         new_group.append(test_pos)
                         new_group_search.append(test_pos)
                         int_cells.remove(test_pos)
+            # Look for surrounding border
             for direct in [[-1, 0], [0, 1], [1, 0], [0, -1],
                            [-1, -1], [-1, 1], [1, -1], [1, 1]]:
-                test_pos = [a_cell[0] + direct[0],a_cell[1] + direct[1]]
+                test_x, test_y = a_cell[0] + direct[0], a_cell[1] + direct[1]
+                test_pos = [test_y, test_x, matrix[test_y, test_x]]
                 # print('matrix[*test_pos]:', matrix[*test_pos])
-                if matrix[tuple(test_pos)] in '|-+':
-                    if not test_pos in group_border_cells:
+                if test_pos[2] in '|-+':
+                    if test_pos not in group_border_cells:
                         group_border_cells.append(test_pos)
         # print('new_group:', new_group)
         new_group = sorted(new_group, key=lambda x: (x[0], x[1]))
@@ -83,6 +100,122 @@ def find_internal_full_groups(matrix, internal_cells):
     return internal_groups, border_cells
 
 
+def find_internal_half_cells(matrix):
+    internal_half_cells = []
+    # rows, cols = matrix.shape
+    # Search for vertical, narrow passageways
+    rows, cols = matrix.shape
+    for row_no in range(rows):
+        next_row_no = row_no + 1
+        for col_no in range(cols):
+            next_col_no = col_no + 1
+            # Search for vertical, narrow passageways
+            if next_row_no < rows:
+                if ((matrix[row_no, col_no] in ('|', '+') and
+                     matrix[row_no, next_col_no] == '|') or
+                    (matrix[row_no, next_col_no] in ('|', '+') and
+                     matrix[row_no, col_no] == '|')):
+                    internal_half_cells.append([row_no, col_no + 0.5])
+            # Search for horiz, narrow passageways
+            if nex_col_no < cols:
+                if ((matrix[row_no, col_no] in ('-', '+') and
+                     matrix[next_row_no, col_no] == '-') or
+                    (matrix[next_row_no, col_no] in ('-', '+') and
+                     matrix[row_no, col_no] == '-')):
+                    internal_half_cells.append([row_no + 0.5, col_no])
+                # Search for single half-cell box ++\n++
+                if next_row_no < rows:
+                    if (matrix[row_no, col_no] == '+' and
+                        matrix[row_no, next_col_no] == '+' and
+                        matrix[next_row_no, col_no] == '+' and
+                            matrix[next_row_no, next_col_no] == '+'):
+                        internal_half_cells.append([row_no + 0.5,
+                                                    col_no + 0.5])
+    return internal_half_cells
+
+
+def find_internal_half_groups(matrix,
+                              full_cells,
+                              int_half_cells,
+                              in_full_groups,
+                              border_cells):
+    half_cells = int_half_cells[:]
+    internal_groups = []
+    half_border_cells = []
+    while half_cells:
+        a_cell = half_cells.pop(0)
+        # print('int_cells:', int_cells)
+        new_group = [a_cell]
+        full_groups_attached = []
+        new_group_search = [a_cell]
+        group_border_cells = []
+        while new_group_search:
+            a_cell = new_group_search.pop(0)
+            # Search vertically first
+            if a_cell[0] == int(a_cell[0]):
+                # Look for connected half-cell spaces
+                for direct in [[-1, 0], [1, 0],
+                               [-0.5, -0.5], [-0.5, 0.5],
+                               [0.5, -0.5], [0.5, 0.5]]:
+                    test_pos = [a_cell[0] + direct[0], a_cell[1] + direct[1]]
+                    # print('test_pos:', test_pos)
+                    # if (test_pos[0] < 0 or test_pos[0]) ...
+                    if test_pos in half_cells:
+                        # print('foo')
+                        if test_pos not in new_group:
+                            # print('bar')
+                            new_group.append(test_pos)
+                            new_group_search.append(test_pos)
+                            half_cells.remove(test_pos)
+                # Look for connected full-cell spaces
+                for direct in [[-1, -0.5], [-1, 0.5], [1, -0.5], [1, 0.5]]:
+                    test_pos = [a_cell[0] + direct[0],
+                                int(round(a_cell[1] + direct[1], 0))]
+                    index = [i for i, s in enumerate(in_full_groups)
+                             if test_pos in s]
+                    full_group = index[0] if index else -1
+                    if full_group not in full_groups_attached:
+                        full_groups_attached.append(full_group)
+                # Look for surrounding border
+                for direct in [[0, -0.5], [0, 0.5]]:
+                    test_x, test_y = (a_cell[0] + direct[0],
+                                      a_cell[1] + direct[1])
+                    test_pos = [test_y, test_x, matrix[test_y, test_x]]
+                    # print('matrix[*test_pos]:', matrix[*test_pos])
+                    if test_pos not in group_border_cells:
+                        group_border_cells.append(test_pos)
+
+
+        # print('new_group:', new_group)
+        new_group = sorted(new_group, key=lambda x: (x[0], x[1]))
+        group_border_cells = sorted(group_border_cells,
+                                    key=lambda x: (x[0], x[1]))
+        internal_groups.append(new_group)
+        border_cells.append(group_border_cells)
+
+    return internal_groups, border_cells
+
+
+def crop_shift_cells(border_cells):
+    for a_border in border_cells:
+        this_border = np.copy(a_border)
+        x_coords = np.array([x[0] for x in this_border])
+        y_coords = np.array([x[1] for x in this_border])
+        x_min = x_coords.min()
+        y_min = y_coords.min()
+        x_coords = x_coords - x_min
+        y_coords = y_coords - y_min
+        # y_max = border_y.max()
+        border_x = border_x - x_min
+        border_y = border_y - y_min
+        
+
+
+def range_of_coords()
+    pass
+
+
+"""
 def find_shape_paths(matrix, border_cells):
     shapes = []
     for a_group in border_cells:
@@ -170,7 +303,7 @@ def find_shape_paths(matrix, border_cells):
             if path[0] == path[-1]:
                 path = path[:-1]
                 break
-
+"""
 
 
 class TestMethods(unittest.TestCase):
