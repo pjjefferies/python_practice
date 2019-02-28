@@ -141,7 +141,8 @@ def find_internal_half_groups(matrix,
                               border_cells):
     half_cells = int_half_cells[:]
     internal_groups = []
-    half_border_cells = []
+    new_inter_groups = in_full_groups[:]
+    new_border_cells = border_cells[:]
     while half_cells:
         a_cell = half_cells.pop(0)
         # print('int_cells:', int_cells)
@@ -151,8 +152,16 @@ def find_internal_half_groups(matrix,
         group_border_cells = []
         while new_group_search:
             a_cell = new_group_search.pop(0)
-            # Search vertically first
-            if a_cell[0] == int(a_cell[0]):
+            # Check for single quarter cell first
+            if (a_cell[0] != int(a_cell[0])) and (a_cell[1] != int(a_cell[0])):
+                for direct in [[-0.5, -0.5], [-0.5, 0.5],
+                               [0.5, -0.5], [0.5, 0.5]]:
+                    test_x, test_y = (a_cell[0] + direct[0],
+                                      a_cell[1] + direct[1])
+                    test_pos = [test_y, test_x, matrix[test_y, test_x]]
+                    group_border_cells.append(test_pos)
+            # Search vertically
+            elif a_cell[0] == int(a_cell[0]):
                 # Look for connected half-cell spaces
                 for direct in [[-1, 0], [1, 0],
                                [-0.5, -0.5], [-0.5, 0.5],
@@ -171,7 +180,7 @@ def find_internal_half_groups(matrix,
                 for direct in [[-1, -0.5], [-1, 0.5], [1, -0.5], [1, 0.5]]:
                     test_pos = [a_cell[0] + direct[0],
                                 int(round(a_cell[1] + direct[1], 0))]
-                    index = [i for i, s in enumerate(in_full_groups)
+                    index = [i for i, s in enumerate(new_inter_groups)
                              if test_pos in s]
                     full_group = index[0] if index else -1
                     if full_group not in full_groups_attached:
@@ -179,21 +188,82 @@ def find_internal_half_groups(matrix,
                 # Look for surrounding border
                 for direct in [[0, -0.5], [0, 0.5]]:
                     test_x, test_y = (a_cell[0] + direct[0],
+                                      int(round(a_cell[1] + direct[1], 0)))
+                    test_pos = [test_y, test_x, matrix[test_y, test_x]]
+                    # print('matrix[*test_pos]:', matrix[*test_pos])
+                    if test_pos not in group_border_cells:
+                        group_border_cells.append(test_pos)
+            # Search horizontally
+            elif a_cell[1] == int(a_cell[1]):
+                # Look for connected half-cell spaces
+                for direct in [[0, -1], [0, -1],
+                               [-0.5, -0.5], [-0.5, 0.5],
+                               [0.5, -0.5], [0.5, 0.5]]:
+                    test_pos = [a_cell[0] + direct[0], a_cell[1] + direct[1]]
+                    # print('test_pos:', test_pos)
+                    # if (test_pos[0] < 0 or test_pos[0]) ...
+                    if test_pos in half_cells:
+                        # print('foo')
+                        if test_pos not in new_group:
+                            # print('bar')
+                            new_group.append(test_pos)
+                            new_group_search.append(test_pos)
+                            half_cells.remove(test_pos)
+                # Look for connected full-cell spaces
+                for direct in [[-0.5, -1], [0.5, -1], [-0.5, 1], [0.5, 1]]:
+                    test_pos = [int(round(a_cell[0] + direct[0], 0)),
+                                a_cell[1] + direct[1]]
+                    index = [i for i, s in enumerate(new_inter_groups)
+                             if test_pos in s]
+                    full_group = index[0] if index else -1
+                    if full_group not in full_groups_attached:
+                        full_groups_attached.append(full_group)
+                # Look for surrounding border
+                for direct in [[-0.5, 0], [0.5, 0]]:
+                    test_x, test_y = (int(round(a_cell[0] + direct[0], 0)),
                                       a_cell[1] + direct[1])
                     test_pos = [test_y, test_x, matrix[test_y, test_x]]
                     # print('matrix[*test_pos]:', matrix[*test_pos])
                     if test_pos not in group_border_cells:
                         group_border_cells.append(test_pos)
+            else:
+                raise ValueError('Something went wrong')
+
+        if not full_groups_attached:
+            # print('new_group:', new_group)
+            new_group = sorted(new_group, key=lambda x: (x[0], x[1]))
+            group_border_cells = sorted(group_border_cells,
+                                        key=lambda x: (x[0], x[1]))
+            new_inter_groups.append(new_group)
+            new_border_cells.append(group_border_cells)
+        elif len(full_groups_attached) == 1:  # add halfs to full groups
+            # internal space
+            new_group = (new_group + 
+                         new_inter_groups[full_groups_attached[0]][:]
+            new_inter_groups[full_groups_attached[0]] = new_group[:]
+            # borders
+            group_border_cells = (group_border_cells +
+                                  new_border_cells[full_groups_attached[0]])
+            group_border_cells = sorted(group_border_cells,
+                                        key=lambda x: (x[0], x[1]))
+            new_border_cells[full_groups_attached[0]] = group_border_cells[:]
+        else:  # add halfs and join connected full groups
+            for a_joined_group_no in full_groups_attached:
+                # internal space
+                new_group = (new_group + new_inter_groups[a_joined_group_no])
+                # borders
+                group_border_cells = (group_border_cells +
+                                      new_border_cells[a_joined_group_no])
+            # out with the old
+            for index in sorted(full_groups_attached, reverse=True):
+                del new_inter_groups[index]
+                del new_border_cells[index]
+            # in with the new
+            new_inter_groups.append(int_temp_group)
+            new_border_cells.append(group_border_cells)
 
 
-        # print('new_group:', new_group)
-        new_group = sorted(new_group, key=lambda x: (x[0], x[1]))
-        group_border_cells = sorted(group_border_cells,
-                                    key=lambda x: (x[0], x[1]))
-        internal_groups.append(new_group)
-        border_cells.append(group_border_cells)
-
-    return internal_groups, border_cells
+    return new_inter_groups, new_border_cells
 
 
 def crop_shift_cells(border_cells):
