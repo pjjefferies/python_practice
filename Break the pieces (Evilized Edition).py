@@ -7,11 +7,16 @@ Created on Mon Feb 25 10:49:02 2019
 
 
 import unittest
+import collections
+
 import numpy as np
 
 USE_BREAK_DISPLAY = True
 
+
 def break_evil_pieces(shape):
+    if len(shape) == 0:
+        return []
     # print('shape:\n', shape)
     # if strings in shape are not equal length, pad
     shape_matrix = shape.strip('\n').split('\n')
@@ -40,7 +45,7 @@ def break_evil_pieces(shape):
     # print('border_cells:', border_cells)
 
     inside_half_cells = find_internal_half_cells(matrix)
-    # print('inside_half_cells:', inside_half_cells)
+    print('inside_half_cells:', inside_half_cells)
 
     inside_groups, border_cells = (
         find_internal_half_groups(matrix,
@@ -48,9 +53,9 @@ def break_evil_pieces(shape):
                                   inside_half_cells,
                                   inside_full_groups,
                                   border_cells))
-    # print('No groups:', len(inside_groups))
-    # print('inside_groups:', inside_groups)
-    # print('border_cells:', border_cells)
+    print('No groups:', len(inside_groups))
+    print('inside_groups:', inside_groups)
+    print('border_cells:', border_cells)
 
     border_cells = crop_shift_cells(border_cells)
     # print('border_cells:', border_cells)
@@ -63,6 +68,9 @@ def break_evil_pieces(shape):
 
     new_matrix_shape_strings = matrices_to_strings(new_matrix_shapes)
     # print('new_matrix_shape_strings:\n', new_matrix_shape_strings)
+
+    new_matrix_shape_strings = sorted(new_matrix_shape_strings,
+                                      key=lambda x: len(x))
 
     return new_matrix_shape_strings
 
@@ -196,20 +204,23 @@ def find_internal_half_groups(matrix,
         while new_group_search:
             a_cell = new_group_search.pop(0)
             # Check for single quarter cell first
-            if (a_cell[0] != int(a_cell[0])) and (a_cell[1] != int(a_cell[0])):
+            if (a_cell[0] != int(a_cell[0])) and (a_cell[1] != int(a_cell[1])):
+                print('a_cell:', a_cell, ', searching for egg')
                 for direct in [[-0.5, -0.5], [-0.5, 0.5],
                                [0.5, -0.5], [0.5, 0.5]]:
                     test_y, test_x = (int(round(a_cell[0] + direct[0], 0)),
                                       int(round(a_cell[1] + direct[1], 0)))
-                    test_pos = [test_y, test_x, matrix[test_y, test_x]]
-                    group_border_cells.append(test_pos)
+                    test_cell = [test_y, test_x, matrix[test_y, test_x]]
+                    group_border_cells.append(test_cell)
             elif a_cell[0] == int(a_cell[0]):
                 # Search vertically
+                # print('a_cell:', a_cell, ', searching vertically')
                 # Look for connected half-cell spaces
                 for direct in [[-1, 0], [1, 0],
                                [-0.5, -0.5], [-0.5, 0.5],
                                [0.5, -0.5], [0.5, 0.5]]:
-                    test_pos = [a_cell[0] + direct[0], a_cell[1] + direct[1]]
+                    test_pos = [int(round(a_cell[0] + direct[0], 0)),
+                                round(a_cell[1] + direct[1], 1)]
                     if test_pos[0] < 0 or test_pos[0] >= rows:
                         continue
                     # print('test_pos:', test_pos)
@@ -221,9 +232,10 @@ def find_internal_half_groups(matrix,
                             new_group.append(test_pos)
                             new_group_search.append(test_pos)
                             half_cells.remove(test_pos)
+                    print('new_group_search:', new_group_search)
                 # Look for connected full-cell spaces
                 for direct in [[-1, -0.5], [-1, 0.5], [1, -0.5], [1, 0.5]]:
-                    test_pos = [a_cell[0] + direct[0],
+                    test_pos = [int(round(a_cell[0] + direct[0], 0)),
                                 int(round(a_cell[1] + direct[1], 0))]
                     if test_pos[0] < 0 or test_pos[0] >= rows:
                         continue
@@ -236,19 +248,25 @@ def find_internal_half_groups(matrix,
                 # Look for surrounding border
                 for direct in [[0, -0.5], [0, 0.5], [-1, -0.5], [-1, 0.5],
                                [1, -0.5], [1, 0.5]]:
-                    test_y, test_x = (a_cell[0] + direct[0],
-                                      int(round(a_cell[1] + direct[1], 0)))
-                    test_pos = [test_y, test_x, matrix[test_y, test_x]]
+                    test_pos = [int(round(a_cell[0] + direct[0], 0)),
+                                int(round(a_cell[1] + direct[1], 0))]
+                    print('\ntest_pos:', test_pos)
+                    test_y, test_x = test_pos
+                    test_cell = [test_y, test_x, matrix[test_y, test_x]]
                     # print('matrix[*test_pos]:', matrix[*test_pos])
-                    if test_pos not in group_border_cells:
-                        group_border_cells.append(test_pos)
+                    print('current group_border_cells:', group_border_cells)
+                    if test_cell not in group_border_cells:
+                        print('adding border:', test_cell)
+                        group_border_cells.append(test_cell)
             elif a_cell[1] == int(a_cell[1]):
                 # Search horizontally
+                # print('a_cell:', a_cell, ', searching horizontally')
                 # Look for connected half-cell spaces
-                for direct in [[0, -1], [0, -1],
+                for direct in [[0, -1], [0, 1],
                                [-0.5, -0.5], [-0.5, 0.5],
                                [0.5, -0.5], [0.5, 0.5]]:
-                    test_pos = [a_cell[0] + direct[0], a_cell[1] + direct[1]]
+                    test_pos = [round(a_cell[0] + direct[0], 1),
+                                int(round(a_cell[1] + direct[1], 0))]
                     if test_pos[1] < 0 or test_pos[1] >= cols:
                         continue
                     # print('test_pos:', test_pos)
@@ -263,7 +281,7 @@ def find_internal_half_groups(matrix,
                 # Look for connected full-cell spaces
                 for direct in [[-0.5, -1], [0.5, -1], [-0.5, 1], [0.5, 1]]:
                     test_pos = [int(round(a_cell[0] + direct[0], 0)),
-                                a_cell[1] + direct[1]]
+                                int(round(a_cell[1] + direct[1], 0))]
                     if test_pos[1] < 0 or test_pos[1] >= cols:
                         continue
                     index = [i for i, s in enumerate(new_inter_groups)
@@ -275,12 +293,15 @@ def find_internal_half_groups(matrix,
                 # Look for surrounding border
                 for direct in [[-0.5, 0], [0.5, 0], [-0.5, -1], [-0.5, 1],
                                [0.5, -1], [0.5, 1]]:
-                    test_y, test_x = (int(round(a_cell[0] + direct[0], 0)),
-                                      a_cell[1] + direct[1])
-                    test_pos = [test_y, test_x, matrix[test_y, test_x]]
+                    print('a_cell:', a_cell)
+                    test_pos = [int(round(a_cell[0] + direct[0], 0)),
+                                int(round(a_cell[1] + direct[1], 0))]
+                    test_y, test_x = test_pos
+                    print('test_y:', test_y, ', test_x:', test_x)
+                    test_cell = [test_y, test_x, matrix[test_y, test_x]]
                     # print('matrix[*test_pos]:', matrix[*test_pos])
-                    if test_pos not in group_border_cells:
-                        group_border_cells.append(test_pos)
+                    if test_cell not in group_border_cells:
+                        group_border_cells.append(test_cell)
             else:
                 raise ValueError('Something went wrong')
 
@@ -435,7 +456,9 @@ class TestMethods(unittest.TestCase):
         print('answer:\n')
         for an_answer in answer:
             print(an_answer)
-        self.assertEqual(result, answer)
+        pass_result = (collections.Counter(result) ==
+                       collections.Counter(answer))
+        self.assertTrue(pass_result)
         print('correct!')
 
         # Test 2 - 3 Boxes
@@ -475,7 +498,9 @@ class TestMethods(unittest.TestCase):
         print('answer:\n')
         for an_answer in answer:
             print(an_answer)
-        self.assertEqual(result, answer)
+        pass_result = (collections.Counter(result) ==
+                       collections.Counter(answer))
+        self.assertTrue(pass_result)
         print('correct!')
 
         # Test 3 - Lego stuff
@@ -513,7 +538,9 @@ class TestMethods(unittest.TestCase):
         print('answer:\n')
         for an_answer in answer:
             print(an_answer)
-        self.assertEqual(result, answer)
+        pass_result = (collections.Counter(result) ==
+                       collections.Counter(answer))
+        self.assertTrue(pass_result)
         print('correct!')
 
         # Test 4 - Piece of cake! (check for irrelevant spaces)
@@ -558,7 +585,9 @@ class TestMethods(unittest.TestCase):
         print('answer:\n')
         for an_answer in answer:
             print(an_answer)
-        self.assertEqual(result, answer)
+        pass_result = (collections.Counter(result) ==
+                       collections.Counter(answer))
+        self.assertTrue(pass_result)
         print('correct!')
 
         # Test 5 - Horseshoe (shapes are not always rectangles!)
@@ -583,7 +612,9 @@ class TestMethods(unittest.TestCase):
         print('answer:\n')
         for an_answer in answer:
             print(an_answer)
-        self.assertEqual(result, answer)
+        pass_result = (collections.Counter(result) ==
+                       collections.Counter(answer))
+        self.assertTrue(pass_result)
         print('correct!')
 
         # Test 6 - Warming up
@@ -628,7 +659,9 @@ class TestMethods(unittest.TestCase):
         print('answer:\n')
         for an_answer in answer:
             print(an_answer)
-        self.assertEqual(result, answer)
+        pass_result = (collections.Counter(result) ==
+                       collections.Counter(answer))
+        self.assertTrue(pass_result)
         print('correct!')
 
         # Test 7 - Don't forget the eggs! (you'll understand later...)
@@ -645,7 +678,9 @@ class TestMethods(unittest.TestCase):
         print('answer:\n')
         for an_answer in answer:
             print(an_answer)
-        self.assertEqual(result, answer)
+        pass_result = (collections.Counter(result) ==
+                       collections.Counter(answer))
+        self.assertTrue(pass_result)
         print('correct!')
 
         # Test 8 - Train?
@@ -683,14 +718,72 @@ class TestMethods(unittest.TestCase):
 +----+
 """.strip('\n')]
         result = break_evil_pieces(shape)
+        # print('result:\n')
+        for a_result in result:
+            pass
+            # print(a_result, '\n\n')
+        # print('answer:\n')
+        for an_answer in answer:
+            pass
+            # print(an_answer, '\n\n')
+        pass_result = (collections.Counter(result) ==
+                       collections.Counter(answer))
+        self.assertTrue(pass_result)
+        print('correct!')
+
+        # Test - 9 - Yin-Yang
+        print('Test 9: ', end='')
+        shape = """
++-------------------++--+
+|                   ||  |
+|                   ||  |
+|  +----------------+|  |
+|  |+----------------+  |
+|  ||                   |
++--++-------------------+
+""".strip('\n')
+        answer = ["""
++-------------------+
+|                   |
+|                   |
+|  +----------------+
+|  |
+|  |
++--+
+""".strip('\n'),
+"""
+                 ++
+                 ||
+                 ||
++----------------+|
+|+----------------+
+||
+++
+""".strip('\n'),
+"""
+                 +--+
+                 |  |
+                 |  |
+                 |  |
++----------------+  |
+|                   |
++-------------------+
+""".strip('\n')]
+        result = break_evil_pieces(shape)
         print('result:\n')
         for a_result in result:
             print(a_result, '\n\n')
         print('answer:\n')
         for an_answer in answer:
             print(an_answer, '\n\n')
-        self.assertEqual(result, answer)
+        pass_result = (collections.Counter(result) ==
+                       collections.Counter(answer))
+        self.assertTrue(pass_result)
         print('correct!')
+
+
+
+
 
 
 if __name__ == '__main__':
