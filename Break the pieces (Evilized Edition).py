@@ -12,23 +12,35 @@ import numpy as np
 USE_BREAK_DISPLAY = True
 
 def break_evil_pieces(shape):
+    # print('shape:\n', shape)
+    # if strings in shape are not equal length, pad
+    shape_matrix = shape.strip('\n').split('\n')
+    # print('shape_matrix:', shape_matrix)
+    line_lens = [len(x) for x in shape_matrix]
+    max_len = max(line_lens)
+    # print('line_lens:', line_lens, ', max_len:', max_len)
+    new_shape = []
+    for a_line in shape_matrix:
+        new_shape.append(a_line + ''.join(' ' * (max_len - len(a_line))))
+    # print('new_shape:\n', new_shape)
     matrix = np.array([[char for char in line]
-                       for line in shape.strip('\n').splitlines()])
-    rows, cols = matrix.shape
-    print('rows:', rows, ', cols:', cols)
+                       for line in new_shape])
+    # print('matrix:\n', matrix)
+    # rows, cols = matrix.shape
+    # print('rows:', rows, ', cols:', cols)
 
     inside_full_cells = find_internal_full_cells(matrix)
-    print('matrix:\n', matrix)
-    print('inside_full_cells:', inside_full_cells)
+    # print('matrix:\n', matrix)
+    # print('inside_full_cells:', inside_full_cells)
 
     inside_full_groups, border_cells = (
         find_internal_full_groups(matrix, inside_full_cells))
-    print('No full groups:', len(inside_full_groups))
-    print('inside_full_groups:', inside_full_groups)
-    print('border_cells:', border_cells)
+    # print('No full groups:', len(inside_full_groups))
+    # print('inside_full_groups:', inside_full_groups)
+    # print('border_cells:', border_cells)
 
     inside_half_cells = find_internal_half_cells(matrix)
-    print('inside_half_cells:', inside_full_cells)
+    # print('inside_half_cells:', inside_half_cells)
 
     inside_groups, border_cells = (
         find_internal_half_groups(matrix,
@@ -36,24 +48,23 @@ def break_evil_pieces(shape):
                                   inside_half_cells,
                                   inside_full_groups,
                                   border_cells))
-    print('No groups:', len(inside_groups))
-    print('inside_groups:', inside_groups)
-    print('border_cells:', border_cells)
+    # print('No groups:', len(inside_groups))
+    # print('inside_groups:', inside_groups)
+    # print('border_cells:', border_cells)
 
     border_cells = crop_shift_cells(border_cells)
-    print('border_cells:', border_cells)
+    # print('border_cells:', border_cells)
 
     new_matrix_shapes = create_shapes(border_cells)
-    print('new_matrix_shapes:', new_matrix_shapes)
+    # print('new_matrix_shapes:', new_matrix_shapes)
 
     new_matrix_shapes = clean_matrix_shapes(matrix, new_matrix_shapes)
-    print('\ncleaned new_matrix_shapes:\n', new_matrix_shapes)
+    # print('\ncleaned new_matrix_shapes:\n', new_matrix_shapes)
 
     new_matrix_shape_strings = matrices_to_strings(new_matrix_shapes)
-    print('new_matrix_shape_strings:\n', new_matrix_shape_strings)
+    # print('new_matrix_shape_strings:\n', new_matrix_shape_strings)
 
     return new_matrix_shape_strings
-
 
 
 def find_internal_full_cells(matrix):
@@ -74,6 +85,7 @@ def find_internal_full_cells(matrix):
 
 
 def find_internal_full_groups(matrix, internal_cells):
+    rows, cols = matrix.shape
     int_cells = internal_cells[:]
     internal_groups = []
     border_cells = []
@@ -83,13 +95,18 @@ def find_internal_full_groups(matrix, internal_cells):
         new_group = [a_cell]
         new_group_search = [a_cell]
         group_border_cells = []
+        dead_group = False
         while new_group_search:
             a_cell = new_group_search.pop(0)
             # Look for connected open space
             for direct in [[-1, 0], [0, 1], [1, 0], [0, -1]]:
-                test_pos = [a_cell[0] + direct[0],a_cell[1] + direct[1]]
+                test_pos = [a_cell[0] + direct[0], a_cell[1] + direct[1]]
+                test_y, test_x = test_pos
                 # print('test_pos:', test_pos)
-                # if (test_pos[0] < 0 or test_pos[0]) ...
+                if (test_y < 0 or test_y >= rows or
+                        test_x < 0 or test_x >= cols):
+                    # group is open, disregard
+                    dead_group = True
                 if test_pos in int_cells:
                     # print('foo')
                     if test_pos not in new_group:
@@ -103,11 +120,17 @@ def find_internal_full_groups(matrix, internal_cells):
                            [-1, -1], [-1, 1], [1, -1], [1, 1]]:
                 test_y, test_x = a_cell[0] + direct[0], a_cell[1] + direct[1]
                 # print('test_x:', test_x, ', test_y:', test_y)
+                if (test_y < 0 or test_y >= rows or
+                        test_x < 0 or test_x >= cols):
+                    # group is open, disregard
+                    continue
                 test_pos = [test_y, test_x, matrix[test_y, test_x]]
                 # print('matrix[*test_pos]:', matrix[*test_pos])
                 if test_pos[2] in '|-+':
                     if test_pos not in group_border_cells:
                         group_border_cells.append(test_pos)
+        if dead_group:
+            continue
         # print('new_group:', new_group)
         new_group = sorted(new_group, key=lambda x: (x[0], x[1]))
         group_border_cells = sorted(group_border_cells,
@@ -176,8 +199,8 @@ def find_internal_half_groups(matrix,
             if (a_cell[0] != int(a_cell[0])) and (a_cell[1] != int(a_cell[0])):
                 for direct in [[-0.5, -0.5], [-0.5, 0.5],
                                [0.5, -0.5], [0.5, 0.5]]:
-                    test_y, test_x = (a_cell[0] + direct[0],
-                                      a_cell[1] + direct[1])
+                    test_y, test_x = (int(round(a_cell[0] + direct[0], 0)),
+                                      int(round(a_cell[1] + direct[1], 0)))
                     test_pos = [test_y, test_x, matrix[test_y, test_x]]
                     group_border_cells.append(test_pos)
             elif a_cell[0] == int(a_cell[0]):
@@ -207,10 +230,12 @@ def find_internal_half_groups(matrix,
                     index = [i for i, s in enumerate(new_inter_groups)
                              if test_pos in s]
                     full_group = index[0] if index else -1
-                    if full_group not in full_groups_attached:
+                    if (full_group != -1 and
+                            full_group not in full_groups_attached):
                         full_groups_attached.append(full_group)
                 # Look for surrounding border
-                for direct in [[0, -0.5], [0, 0.5]]:
+                for direct in [[0, -0.5], [0, 0.5], [-1, -0.5], [-1, 0.5],
+                               [1, -0.5], [1, 0.5]]:
                     test_y, test_x = (a_cell[0] + direct[0],
                                       int(round(a_cell[1] + direct[1], 0)))
                     test_pos = [test_y, test_x, matrix[test_y, test_x]]
@@ -244,10 +269,12 @@ def find_internal_half_groups(matrix,
                     index = [i for i, s in enumerate(new_inter_groups)
                              if test_pos in s]
                     full_group = index[0] if index else -1
-                    if full_group not in full_groups_attached:
+                    if (full_group != -1 and
+                            full_group not in full_groups_attached):
                         full_groups_attached.append(full_group)
                 # Look for surrounding border
-                for direct in [[-0.5, 0], [0.5, 0]]:
+                for direct in [[-0.5, 0], [0.5, 0], [-0.5, -1], [-0.5, 1],
+                               [0.5, -1], [0.5, 1]]:
                     test_y, test_x = (int(round(a_cell[0] + direct[0], 0)),
                                       a_cell[1] + direct[1])
                     test_pos = [test_y, test_x, matrix[test_y, test_x]]
@@ -365,7 +392,7 @@ def matrices_to_strings(matrix_shapes):
     new_matrix_str_group = []
     for a_matrix_shape in matrix_shapes:
         matrix_str = [''.join(item for item in row)
-                                   for row in a_matrix_shape]
+                      for row in a_matrix_shape]
         matrix_str = [x.rstrip() for x in matrix_str]
         new_matrix_str = '\n'.join(matrix_str)
         new_matrix_str_group.append(new_matrix_str)
@@ -389,7 +416,7 @@ class TestMethods(unittest.TestCase):
 |          |
 +----------+
 """.strip('\n')
-        answer = expected = ["""
+        answer = ["""
 +----------+
 |          |
 |          |
@@ -402,6 +429,12 @@ class TestMethods(unittest.TestCase):
 +----------+
 """.strip('\n'), ]
         result = break_evil_pieces(shape)
+        print('result:\n')
+        for a_result in result:
+            print(a_result)
+        print('answer:\n')
+        for an_answer in answer:
+            print(an_answer)
         self.assertEqual(result, answer)
         print('correct!')
 
@@ -434,8 +467,14 @@ class TestMethods(unittest.TestCase):
 |     |
 |     |
 +-----+
-""".strip('\n'),]
+""".strip('\n'), ]
         result = break_evil_pieces(shape)
+        print('result:\n')
+        for a_result in result:
+            print(a_result)
+        print('answer:\n')
+        for an_answer in answer:
+            print(an_answer)
         self.assertEqual(result, answer)
         print('correct!')
 
@@ -466,8 +505,14 @@ class TestMethods(unittest.TestCase):
 |                   |
 |                   |
 +-------------------+
-""".strip('\n'),]
+""".strip('\n'), ]
         result = break_evil_pieces(shape)
+        print('result:\n')
+        for a_result in result:
+            print(a_result)
+        print('answer:\n')
+        for an_answer in answer:
+            print(an_answer)
         self.assertEqual(result, answer)
         print('correct!')
 
@@ -506,6 +551,13 @@ class TestMethods(unittest.TestCase):
 +-----------------+
 """.strip('\n'), ]
         result = break_evil_pieces(shape)
+        print('shape:\n', shape)
+        print('result:\n')
+        for a_result in result:
+            print(a_result)
+        print('answer:\n')
+        for an_answer in answer:
+            print(an_answer)
         self.assertEqual(result, answer)
         print('correct!')
 
@@ -525,6 +577,12 @@ class TestMethods(unittest.TestCase):
 """.strip('\n')
         answer = [shape]
         result = break_evil_pieces(shape)
+        print('result:\n')
+        for a_result in result:
+            print(a_result)
+        print('answer:\n')
+        for an_answer in answer:
+            print(an_answer)
         self.assertEqual(result, answer)
         print('correct!')
 
@@ -562,8 +620,14 @@ class TestMethods(unittest.TestCase):
 ||
 ||
 ++
-""".strip('\n'),]
+""".strip('\n'), ]
         result = break_evil_pieces(shape)
+        print('result:\n')
+        for a_result in result:
+            print(a_result)
+        print('answer:\n')
+        for an_answer in answer:
+            print(an_answer)
         self.assertEqual(result, answer)
         print('correct!')
 
@@ -573,8 +637,58 @@ class TestMethods(unittest.TestCase):
 ++
 ++
 """.strip('\n')
-        expected = [shape]
+        answer = [shape]
         result = break_evil_pieces(shape)
+        print('result:\n')
+        for a_result in result:
+            print(a_result)
+        print('answer:\n')
+        for an_answer in answer:
+            print(an_answer)
+        self.assertEqual(result, answer)
+        print('correct!')
+
+        # Test 8 - Train?
+        print('Test 8: ', end='')
+        shape = """
++----++----++----++----+
++----++----++----++----+
+""".strip('\n')
+        answer = ["""
+++
+++
+""".strip('\n'),
+"""
+++
+++
+""".strip('\n'),
+"""
+++
+++
+""".strip('\n'),
+"""
++----+
++----+
+""".strip('\n'),
+"""
++----+
++----+
+""".strip('\n'),
+"""
++----+
++----+
+""".strip('\n'),
+"""
++----+
++----+
+""".strip('\n')]
+        result = break_evil_pieces(shape)
+        print('result:\n')
+        for a_result in result:
+            print(a_result, '\n\n')
+        print('answer:\n')
+        for an_answer in answer:
+            print(an_answer, '\n\n')
         self.assertEqual(result, answer)
         print('correct!')
 
