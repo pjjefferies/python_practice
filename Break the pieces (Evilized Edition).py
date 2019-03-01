@@ -15,6 +15,7 @@ def break_evil_pieces(shape):
     matrix = np.array([[char for char in line]
                        for line in shape.strip('\n').splitlines()])
     rows, cols = matrix.shape
+    print('rows:', rows, ', cols:', cols)
 
     inside_full_cells = find_internal_full_cells(matrix)
     print('matrix:\n', matrix)
@@ -22,6 +23,7 @@ def break_evil_pieces(shape):
 
     inside_full_groups, border_cells = (
         find_internal_full_groups(matrix, inside_full_cells))
+    print('No full groups:', len(inside_full_groups))
     print('inside_full_groups:', inside_full_groups)
     print('border_cells:', border_cells)
 
@@ -29,31 +31,45 @@ def break_evil_pieces(shape):
     print('inside_half_cells:', inside_full_cells)
 
     inside_groups, border_cells = (
-        find_internal_full_groups(matrix,
+        find_internal_half_groups(matrix,
                                   inside_full_cells,
                                   inside_half_cells,
                                   inside_full_groups,
                                   border_cells))
+    print('No groups:', len(inside_groups))
     print('inside_groups:', inside_groups)
     print('border_cells:', border_cells)
 
     border_cells = crop_shift_cells(border_cells)
+    print('border_cells:', border_cells)
 
+    new_matrix_shapes = create_shapes(border_cells)
+    print('new_matrix_shapes:', new_matrix_shapes)
+
+    new_matrix_shapes = clean_matrix_shapes(matrix, new_matrix_shapes)
+    print('\ncleaned new_matrix_shapes:\n', new_matrix_shapes)
+
+    new_matrix_shape_strings = matrices_to_strings(new_matrix_shapes)
+    print('new_matrix_shape_strings:\n', new_matrix_shape_strings)
+
+    return new_matrix_shape_strings
 
 
 
 def find_internal_full_cells(matrix):
-    internal_cells = []
+    # Find all blank spaces. Sort-out which are inside vs. outside in grouping
+    # internal_cells = []
     # rows, cols = matrix.shape
-    for row_no in range(matrix.shape[0]):
-        we_in = False
-        for col_no in range(matrix.shape[1]):
+    yxs = [list(x) for x in np.where(matrix == ' ')]
+    internal_cells = [list(a) for a in zip(yxs[0], yxs[1])]
+    """
+    for row_no in range(rows):
+        for col_no in range(cols):
             # print('row:', row_no, ', col:', col_no, ', val:',
             #       matrix[row_no, col_no], ', we_in:', we_in)
-            if matrix[row_no, col_no] == '|':
-                we_in = not we_in
-            elif matrix[row_no, col_no] == ' ' and we_in:
+            if matrix[row_no, col_no] == ' ':
                 internal_cells.append([row_no, col_no])
+    """
     return internal_cells
 
 
@@ -82,9 +98,11 @@ def find_internal_full_groups(matrix, internal_cells):
                         new_group_search.append(test_pos)
                         int_cells.remove(test_pos)
             # Look for surrounding border
+            # print('a_cell:', a_cell)
             for direct in [[-1, 0], [0, 1], [1, 0], [0, -1],
                            [-1, -1], [-1, 1], [1, -1], [1, 1]]:
-                test_x, test_y = a_cell[0] + direct[0], a_cell[1] + direct[1]
+                test_y, test_x = a_cell[0] + direct[0], a_cell[1] + direct[1]
+                # print('test_x:', test_x, ', test_y:', test_y)
                 test_pos = [test_y, test_x, matrix[test_y, test_x]]
                 # print('matrix[*test_pos]:', matrix[*test_pos])
                 if test_pos[2] in '|-+':
@@ -102,7 +120,6 @@ def find_internal_full_groups(matrix, internal_cells):
 
 def find_internal_half_cells(matrix):
     internal_half_cells = []
-    # rows, cols = matrix.shape
     # Search for vertical, narrow passageways
     rows, cols = matrix.shape
     for row_no in range(rows):
@@ -110,21 +127,23 @@ def find_internal_half_cells(matrix):
         for col_no in range(cols):
             next_col_no = col_no + 1
             # Search for vertical, narrow passageways
-            if next_row_no < rows:
+            # print('row_no:', row_no, ', next_row_no:', next_row_no,
+            #       'col_no:', col_no, ', next_col_no:', next_col_no)
+            if next_col_no < cols:
                 if ((matrix[row_no, col_no] in ('|', '+') and
                      matrix[row_no, next_col_no] == '|') or
                     (matrix[row_no, next_col_no] in ('|', '+') and
                      matrix[row_no, col_no] == '|')):
                     internal_half_cells.append([row_no, col_no + 0.5])
             # Search for horiz, narrow passageways
-            if nex_col_no < cols:
+            if next_row_no < rows:
                 if ((matrix[row_no, col_no] in ('-', '+') and
                      matrix[next_row_no, col_no] == '-') or
                     (matrix[next_row_no, col_no] in ('-', '+') and
                      matrix[row_no, col_no] == '-')):
                     internal_half_cells.append([row_no + 0.5, col_no])
                 # Search for single half-cell box ++\n++
-                if next_row_no < rows:
+                if next_col_no < cols:
                     if (matrix[row_no, col_no] == '+' and
                         matrix[row_no, next_col_no] == '+' and
                         matrix[next_row_no, col_no] == '+' and
@@ -139,8 +158,9 @@ def find_internal_half_groups(matrix,
                               int_half_cells,
                               in_full_groups,
                               border_cells):
+    rows, cols = matrix.shape
     half_cells = int_half_cells[:]
-    internal_groups = []
+    # internal_groups = []
     new_inter_groups = in_full_groups[:]
     new_border_cells = border_cells[:]
     while half_cells:
@@ -156,17 +176,19 @@ def find_internal_half_groups(matrix,
             if (a_cell[0] != int(a_cell[0])) and (a_cell[1] != int(a_cell[0])):
                 for direct in [[-0.5, -0.5], [-0.5, 0.5],
                                [0.5, -0.5], [0.5, 0.5]]:
-                    test_x, test_y = (a_cell[0] + direct[0],
+                    test_y, test_x = (a_cell[0] + direct[0],
                                       a_cell[1] + direct[1])
                     test_pos = [test_y, test_x, matrix[test_y, test_x]]
                     group_border_cells.append(test_pos)
-            # Search vertically
             elif a_cell[0] == int(a_cell[0]):
+                # Search vertically
                 # Look for connected half-cell spaces
                 for direct in [[-1, 0], [1, 0],
                                [-0.5, -0.5], [-0.5, 0.5],
                                [0.5, -0.5], [0.5, 0.5]]:
                     test_pos = [a_cell[0] + direct[0], a_cell[1] + direct[1]]
+                    if test_pos[0] < 0 or test_pos[0] >= rows:
+                        continue
                     # print('test_pos:', test_pos)
                     # if (test_pos[0] < 0 or test_pos[0]) ...
                     if test_pos in half_cells:
@@ -180,6 +202,8 @@ def find_internal_half_groups(matrix,
                 for direct in [[-1, -0.5], [-1, 0.5], [1, -0.5], [1, 0.5]]:
                     test_pos = [a_cell[0] + direct[0],
                                 int(round(a_cell[1] + direct[1], 0))]
+                    if test_pos[0] < 0 or test_pos[0] >= rows:
+                        continue
                     index = [i for i, s in enumerate(new_inter_groups)
                              if test_pos in s]
                     full_group = index[0] if index else -1
@@ -187,19 +211,21 @@ def find_internal_half_groups(matrix,
                         full_groups_attached.append(full_group)
                 # Look for surrounding border
                 for direct in [[0, -0.5], [0, 0.5]]:
-                    test_x, test_y = (a_cell[0] + direct[0],
+                    test_y, test_x = (a_cell[0] + direct[0],
                                       int(round(a_cell[1] + direct[1], 0)))
                     test_pos = [test_y, test_x, matrix[test_y, test_x]]
                     # print('matrix[*test_pos]:', matrix[*test_pos])
                     if test_pos not in group_border_cells:
                         group_border_cells.append(test_pos)
-            # Search horizontally
             elif a_cell[1] == int(a_cell[1]):
+                # Search horizontally
                 # Look for connected half-cell spaces
                 for direct in [[0, -1], [0, -1],
                                [-0.5, -0.5], [-0.5, 0.5],
                                [0.5, -0.5], [0.5, 0.5]]:
                     test_pos = [a_cell[0] + direct[0], a_cell[1] + direct[1]]
+                    if test_pos[1] < 0 or test_pos[1] >= cols:
+                        continue
                     # print('test_pos:', test_pos)
                     # if (test_pos[0] < 0 or test_pos[0]) ...
                     if test_pos in half_cells:
@@ -213,6 +239,8 @@ def find_internal_half_groups(matrix,
                 for direct in [[-0.5, -1], [0.5, -1], [-0.5, 1], [0.5, 1]]:
                     test_pos = [int(round(a_cell[0] + direct[0], 0)),
                                 a_cell[1] + direct[1]]
+                    if test_pos[1] < 0 or test_pos[1] >= cols:
+                        continue
                     index = [i for i, s in enumerate(new_inter_groups)
                              if test_pos in s]
                     full_group = index[0] if index else -1
@@ -220,7 +248,7 @@ def find_internal_half_groups(matrix,
                         full_groups_attached.append(full_group)
                 # Look for surrounding border
                 for direct in [[-0.5, 0], [0.5, 0]]:
-                    test_x, test_y = (int(round(a_cell[0] + direct[0], 0)),
+                    test_y, test_x = (int(round(a_cell[0] + direct[0], 0)),
                                       a_cell[1] + direct[1])
                     test_pos = [test_y, test_x, matrix[test_y, test_x]]
                     # print('matrix[*test_pos]:', matrix[*test_pos])
@@ -238,8 +266,8 @@ def find_internal_half_groups(matrix,
             new_border_cells.append(group_border_cells)
         elif len(full_groups_attached) == 1:  # add halfs to full groups
             # internal space
-            new_group = (new_group + 
-                         new_inter_groups[full_groups_attached[0]][:]
+            new_group = (new_group +
+                         new_inter_groups[full_groups_attached[0]][:])
             new_inter_groups[full_groups_attached[0]] = new_group[:]
             # borders
             group_border_cells = (group_border_cells +
@@ -259,121 +287,89 @@ def find_internal_half_groups(matrix,
                 del new_inter_groups[index]
                 del new_border_cells[index]
             # in with the new
-            new_inter_groups.append(int_temp_group)
+            new_inter_groups.append(new_group)
             new_border_cells.append(group_border_cells)
-
 
     return new_inter_groups, new_border_cells
 
 
 def crop_shift_cells(border_cells):
+    new_border_cells = []
     for a_border in border_cells:
+        # print('a_border:', a_border)
         this_border = np.copy(a_border)
-        x_coords = np.array([x[0] for x in this_border])
-        y_coords = np.array([x[1] for x in this_border])
-        x_min = x_coords.min()
+        # print('this_border:', this_border)
+        y_coords = np.array([int(border[0]) for border in this_border])
+        x_coords = np.array([int(border[1]) for border in this_border])
+        shape = np.array([border[2] for border in this_border])
+        # print('y_coords:', y_coords, ', x_coords:', x_coords)
         y_min = y_coords.min()
-        x_coords = x_coords - x_min
+        x_min = x_coords.min()
         y_coords = y_coords - y_min
+        x_coords = x_coords - x_min
         # y_max = border_y.max()
-        border_x = border_x - x_min
-        border_y = border_y - y_min
-        
+        border = list(zip(y_coords, x_coords, shape))
+        new_border_cells.append(border)
+    return new_border_cells
 
 
-def range_of_coords()
-    pass
+def create_shapes(border_cells):
+    new_matrix_group = []
+    new_matrix_str_group = []
+    for a_border_group in border_cells:
+        y_coords = np.array([int(border[0]) for border in a_border_group])
+        x_coords = np.array([int(border[1]) for border in a_border_group])
+        shape = np.array([border[2] for border in a_border_group])
+        # print('y_coords:', y_coords, ', x_coords:', x_coords)
+        rows = y_coords.max() + 1
+        cols = x_coords.max() + 1
+        # new_matrix = np.array(rows, cols)
+        new_matrix = np.full((rows, cols), ' ')
+        for a_border_no in range(len(y_coords)):
+            new_matrix[y_coords[a_border_no], x_coords[a_border_no]] = (
+                shape[a_border_no])
+        new_matrix_str = '\n'.join([''.join(item for item in row)
+                                   for row in new_matrix])
+        new_matrix_group.append(new_matrix)
+        new_matrix_str_group.append(new_matrix_str)
+    # return new_matrix_str_group
+    return new_matrix_group
 
 
-"""
-def find_shape_paths(matrix, border_cells):
-    shapes = []
-    for a_group in border_cells:
-        temp_group = a_group[:]
-        path = []
-        path.append(temp_group.pop(0))
-        path_dir = 'e'  # going CW
-        while True:
-            curr_cell_loc = path[-1]
-            curr_cell = matrix[tuple(curr_cell_loc)]
-            if path_dir == 'e':
-                if curr_cell == '-':
-                    next_cell_loc = [curr_cell_loc[0], curr_cell_loc[1] + 1]
-                    next_cell = matrix[tuple(next_cell_loc)]
-                    if next_cell not in '-+':
-                        raise ValueError('Next east cell from - is not - or +')
-                if curr_cell == '+':
-                    for direct_no, direct in enumerate([[1, 0], [0, 1],
-                                                        [-1, 0]]):
-                        test_loc = [curr_cell[0] + direct[0],
-                                    curr_cell[1] + direct[1]]
-                        test_pos_val = matrix(tuple(test_loc))
-                        if test_pos_val in '+|-':
-                            next_cell_loc = test_loc
-                            next_cell = test_pos_val
-                            path_dir = 'sen'[direct_no]
-                            break
-            elif path_dir == 's':
-                if curr_cell == '|':
-                    next_cell_loc = [curr_cell_loc[0] + 1, curr_cell_loc[1]]
-                    next_cell = matrix[tuple(next_cell_loc)]
-                    if next_cell not in '|+':
-                        raise ValueError(
-                            'Next south cell from | isn''t | or +')
-                if curr_cell == '+':
-                    for direct_no, direct in enumerate([[0, -1], [1, 0],
-                                                        [0, 1]]):
-                        test_loc = [curr_cell[0] + direct[0],
-                                    curr_cell[1] + direct[1]]
-                        test_pos_val = matrix(tuple(test_loc))
-                        if test_pos_val in '+|-':
-                            next_cell_loc = test_loc
-                            next_cell = test_pos_val
-                            path_dir = 'esw'[direct_no]
-                            break
-            elif path_dir == 'w':
-                if curr_cell == '-':
-                    next_cell_loc = [curr_cell_loc[0], curr_cell_loc[1] - 1]
-                    next_cell = matrix[tuple(next_cell_loc)]
-                    if next_cell not in '-+':
-                        raise ValueError('Next west cell from - is not - or +')
-                if curr_cell == '+':
-                    for direct_no, direct in enumerate([[-1, 0], [0, -1],
-                                                        [1, 0]]):
-                        test_loc = [curr_cell[0] + direct[0],
-                                    curr_cell[1] + direct[1]]
-                        test_pos_val = matrix(tuple(test_loc))
-                        if test_pos_val in '+|-':
-                            next_cell_loc = test_loc
-                            next_cell = test_pos_val
-                            path_dir = 'nws'[direct_no]
-                            break
-            elif path_dir == 'n':
-                if curr_cell == '|':
-                    next_cell_loc = [curr_cell_loc[0] - 1, curr_cell_loc[1]]
-                    next_cell = matrix[tuple(next_cell_loc)]
-                    if next_cell not in '|+':
-                        raise ValueError(
-                            'Next north cell from | isn''t | or +')
-                if curr_cell == '+':
-                    for direct_no, direct in enumerate([[0, 1], [-1, 0],
-                                                        [0, -1]]):
-                        test_loc = [curr_cell[0] + direct[0],
-                                    curr_cell[1] + direct[1]]
-                        test_pos_val = matrix(tuple(test_loc))
-                        if test_pos_val in '+|-':
-                            next_cell_loc = test_loc
-                            next_cell = test_pos_val
-                            path_dir = 'enw'[direct_no]
-                            break
-            else:
-                raise ValueError("We're lost!")
-            path.append(next_cell_loc)
-            temp_group.remove(next_cell_loc)
-            if path[0] == path[-1]:
-                path = path[:-1]
-                break
-"""
+def clean_matrix_shapes(matrix, matrix_shapes):
+    rows, cols = matrix.shape
+    cleaned_matrix_shapes = []
+    for a_matrix_shape in matrix_shapes:
+        rows, cols = a_matrix_shape.shape
+        intersections = list(zip(*[list(x)
+                                   for x in np.where(a_matrix_shape == '+')]))
+        for intersect in intersections:
+            y_coord, x_coord = intersect
+            x_pre = x_coord - 1
+            x_post = x_coord + 1
+            y_pre = y_coord - 1
+            y_post = y_coord + 1
+            if x_pre >= 0 and x_post < cols:
+                if (a_matrix_shape[y_coord, x_pre] in ('-', '+') and
+                        a_matrix_shape[y_coord, x_post] in ('-', '+')):
+                    a_matrix_shape[intersect] = '-'
+            if y_pre >= 0 and y_post < rows:
+                if (a_matrix_shape[y_pre, x_coord] in ('|', '+') and
+                        a_matrix_shape[y_post, x_coord] in ('|', '+')):
+                    a_matrix_shape[intersect] = '|'
+        cleaned_matrix_shapes.append(a_matrix_shape)
+    return cleaned_matrix_shapes
+
+
+def matrices_to_strings(matrix_shapes):
+    new_matrix_str_group = []
+    for a_matrix_shape in matrix_shapes:
+        matrix_str = [''.join(item for item in row)
+                                   for row in a_matrix_shape]
+        matrix_str = [x.rstrip() for x in matrix_str]
+        new_matrix_str = '\n'.join(matrix_str)
+        new_matrix_str_group.append(new_matrix_str)
+    return new_matrix_str_group
 
 
 class TestMethods(unittest.TestCase):
