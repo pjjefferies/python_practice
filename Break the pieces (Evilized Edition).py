@@ -37,11 +37,12 @@ def break_evil_pieces(shape):
     inside_full_cells = find_internal_full_cells(matrix)
     # print('inside_full_cells:', inside_full_cells)
 
-    inside_full_groups, border_cells = (
+    inside_full_groups, border_cells, dead_cells = (
         find_internal_full_groups(matrix, inside_full_cells))
     # print('No full groups:', len(inside_full_groups))
     # print('inside_full_groups:', inside_full_groups)
     # print('border_cells:', border_cells)
+    # print('dead_cells:', dead_cells)
 
     inside_half_cells = find_internal_half_cells(matrix)
     # print('inside_half_cells:', inside_half_cells)
@@ -51,11 +52,13 @@ def break_evil_pieces(shape):
                                   inside_full_cells,
                                   inside_half_cells,
                                   inside_full_groups,
-                                  border_cells))
+                                  border_cells,
+                                  dead_cells))
     # print('No groups:', len(inside_groups))
     # print('inside_groups:', inside_groups)
     # print('border_cells:', border_cells)
     # print('half_tunnel_end_groups:', half_tunnel_end_groups)
+    # print('dead_cells:', dead_cells)
 
     border_cells, half_tunnel_end_groups = (
         crop_shift_cells(border_cells, half_tunnel_end_groups))
@@ -102,6 +105,7 @@ def find_internal_full_groups(matrix, internal_cells):
     int_cells = internal_cells[:]
     internal_groups = []
     border_cells = []
+    dead_cells = []
     while int_cells:
         a_cell = int_cells.pop(0)
         # print('int_cells:', int_cells)
@@ -143,6 +147,7 @@ def find_internal_full_groups(matrix, internal_cells):
                     if test_pos not in group_border_cells:
                         group_border_cells.append(test_pos)
         if dead_group:
+            dead_cells = dead_cells + new_group
             continue
         # print('new_group:', new_group)
         new_group = sorted(new_group, key=lambda x: (x[0], x[1]))
@@ -150,8 +155,9 @@ def find_internal_full_groups(matrix, internal_cells):
                                     key=lambda x: (x[0], x[1]))
         internal_groups.append(new_group)
         border_cells.append(group_border_cells)
+    dead_cells = sorted(dead_cells, key=lambda x: (x[0], x[1]))
 
-    return internal_groups, border_cells
+    return internal_groups, border_cells, dead_cells
 
 
 def find_internal_half_cells(matrix):
@@ -186,6 +192,8 @@ def find_internal_half_cells(matrix):
                             matrix[next_row_no, next_col_no] == '+'):
                         internal_half_cells.append([row_no + 0.5,
                                                     col_no + 0.5])
+    internal_half_cells = sorted(internal_half_cells,
+                                 key=lambda x: (x[0], x[1]))
     return internal_half_cells
 
 
@@ -193,7 +201,8 @@ def find_internal_half_groups(matrix,
                               full_cells,
                               int_half_cells,
                               in_full_groups,
-                              border_cells):
+                              border_cells,
+                              dead_cells):
     rows, cols = matrix.shape
     half_cells = int_half_cells[:]
     # internal_groups = []
@@ -208,6 +217,7 @@ def find_internal_half_groups(matrix,
         new_group_search = [a_cell]
         group_border_cells = []
         half_tunnel_ends = []
+        dead_group = False
         while new_group_search:
             a_cell = new_group_search.pop(0)
             # print('Searching from a_cell:', a_cell)
@@ -231,6 +241,10 @@ def find_internal_half_groups(matrix,
                     test_pos = [round(a_cell[0] + direct[0], 1),
                                 round(a_cell[1] + direct[1], 1)]
                     if test_pos[0] < 0 or test_pos[0] >= rows:
+                        dead_group = True
+                        continue
+                    if test_pos in dead_cells:
+                        dead_group = True
                         continue
                     # print('vetical half-cell search: test_pos:', test_pos)
                     # if (test_pos[0] < 0 or test_pos[0]) ...
@@ -247,6 +261,10 @@ def find_internal_half_groups(matrix,
                     test_pos = [int(round(a_cell[0] + direct[0], 0)),
                                 int(round(a_cell[1] + direct[1], 0))]
                     if test_pos[0] < 0 or test_pos[0] >= rows:
+                        dead_group = True
+                        continue
+                    if test_pos in dead_cells:
+                        dead_group = True
                         continue
                     index = [i for i, s in enumerate(new_inter_groups)
                              if test_pos in s]
@@ -289,9 +307,13 @@ def find_internal_half_groups(matrix,
                                [0.5, -0.5], [0.5, 0.5]]:
                     test_pos = [round(a_cell[0] + direct[0], 1),
                                 round(a_cell[1] + direct[1], 1)]
-                    if test_pos[1] < 0 or test_pos[1] >= cols:
-                        continue
                     # print('test_pos:', test_pos)
+                    if test_pos[1] < 0 or test_pos[1] >= cols:
+                        dead_group = True
+                        continue
+                    if test_pos in dead_cells:
+                        dead_group = True
+                        continue
                     # if (test_pos[0] < 0 or test_pos[0]) ...
                     if test_pos in half_cells:
                         # print('foo')
@@ -301,10 +323,16 @@ def find_internal_half_groups(matrix,
                             new_group_search.append(test_pos)
                             half_cells.remove(test_pos)
                 # Look for connected full-cell spaces
+                # print('Look for connected full-cell spaces')
                 for direct in [[-0.5, -1], [0.5, -1], [-0.5, 1], [0.5, 1]]:
                     test_pos = [int(round(a_cell[0] + direct[0], 0)),
                                 int(round(a_cell[1] + direct[1], 0))]
+                    # print('test_pos:', test_pos)
                     if test_pos[1] < 0 or test_pos[1] >= cols:
+                        dead_group = True
+                        continue
+                    if test_pos in dead_cells:
+                        dead_group = True
                         continue
                     index = [i for i, s in enumerate(new_inter_groups)
                              if test_pos in s]
@@ -312,6 +340,7 @@ def find_internal_half_groups(matrix,
                     if (full_group != -1 and
                             full_group not in full_groups_attached):
                         full_groups_attached.append(full_group)
+                # print('new_group:', new_group)
                 # Look for surrounding border
                 for direct in [[-0.5, 0], [0.5, 0], [-0.5, -1], [-0.5, 1],
                                [0.5, -1], [0.5, 1]]:
@@ -340,9 +369,16 @@ def find_internal_half_groups(matrix,
             else:
                 raise ValueError('Something went wrong')
 
+        # print('372:new_group:', new_group)
+        # print('373:full_gropus_attached:', full_groups_attached)
+        # print('374:dead_group:', dead_group)
+
         if not full_groups_attached:
             # print('new_group:', new_group)
             new_group = sorted(new_group, key=lambda x: (x[0], x[1]))
+            if dead_group:
+                dead_cells = dead_cells + new_group
+                continue
             group_border_cells = sorted(group_border_cells,
                                         key=lambda x: (x[0], x[1]))
             new_inter_groups.append(new_group)
@@ -352,6 +388,15 @@ def find_internal_half_groups(matrix,
             # internal space
             new_group = (new_group +
                          new_inter_groups[full_groups_attached[0]][:])
+            # print('new_group:', new_group)
+            if dead_group:
+                dead_cells = dead_cells + new_group
+                # print('dead_cells:', dead_cells)
+                del new_inter_groups[full_groups_attached[0]]
+                del new_border_cells[full_groups_attached[0]]
+                del half_tunnel_end_groups[full_groups_attached[0]]
+                # print('new_inter_groups:', new_inter_groups)
+                continue
             new_inter_groups[full_groups_attached[0]] = new_group[:]
             # borders
             group_border_cells = (group_border_cells +
@@ -377,6 +422,9 @@ def find_internal_half_groups(matrix,
                 del half_tunnel_end_groups[index]
 
             # in with the new
+            if dead_group:
+                dead_cells = dead_cells + new_group
+                continue
             new_inter_groups.append(new_group)
             new_border_cells.append(group_border_cells)
             half_tunnel_end_groups.append(half_tunnel_ends)
