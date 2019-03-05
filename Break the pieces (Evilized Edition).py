@@ -17,7 +17,7 @@ USE_BREAK_DISPLAY = True
 def break_evil_pieces(shape):
     if len(shape) == 0:
         return []
-    # print('shape:\n', shape)
+    # print('\nshape:\n', shape)
     # if strings in shape are not equal length, pad
     shape_matrix = shape.strip('\n').split('\n')
     # print('shape_matrix:', shape_matrix)
@@ -43,6 +43,7 @@ def break_evil_pieces(shape):
     # print('inside_full_groups:', inside_full_groups)
     # print('border_cells:', border_cells)
     # print('dead_cells:', dead_cells)
+    # print('46:full_tunnel_end_groups:', full_tunnel_end_groups)
 
     inside_half_cells = find_internal_half_cells(matrix)
     # print('inside_half_cells:', inside_half_cells)
@@ -58,7 +59,7 @@ def break_evil_pieces(shape):
     # print('No groups:', len(inside_groups))
     # print('57:inside_groups:', inside_groups)
     # print('border_cells:', border_cells)
-    # print('half_tunnel_end_groups:', half_tunnel_end_groups)
+    # print('62:half_tunnel_end_groups:', half_tunnel_end_groups)
     # print('dead_cells:', dead_cells)
 
     inside_groups, border_cells , half_tunnel_end_groups = (
@@ -103,6 +104,7 @@ def find_internal_full_groups(matrix, internal_cells):
     border_cells = []
     full_tunnel_end_groups = []
     dead_cells = []
+    edges = ('|', '-', '+')
     while int_cells:
         a_cell = int_cells.pop(0)
         # print('int_cells:', int_cells)
@@ -114,7 +116,8 @@ def find_internal_full_groups(matrix, internal_cells):
         while new_group_search:
             a_cell = new_group_search.pop(0)
             # Look for connected open space
-            for direct in [[-1, 0], [0, 1], [1, 0], [0, -1]]:
+            for direct in [[-1, 0], [0, 1], [1, 0], [0, -1],
+                           [-1, -1], [-1, 1], [1, -1], [1, 1]]:
                 test_pos = [a_cell[0] + direct[0], a_cell[1] + direct[1]]
                 test_y, test_x = test_pos
                 # print('test_pos:', test_pos)
@@ -144,27 +147,29 @@ def find_internal_full_groups(matrix, internal_cells):
                 if test_pos[2] in '|-+':
                     if test_pos not in group_border_cells:
                         group_border_cells.append(test_pos)
-            # Look for end of tunnels
-            for direct in [[[0, -1], '|', [-1, -1], [1, -1]],
-                           [[-1, 0], '-', [-1, -1], [-1, 1]],
-                           [[0, 1], '|', [-1, 1], [1, 1]],
-                           [[1, 0], '-', [1, 1], [1, -1]]]:
-                try_end_y = a_cell[0] + direct[0][0]
-                if try_end_y < 0 or try_end_y >= rows:
+            # Look for end of tunnels corners
+            for direct in [[[-1, -1], [0, -1], [-1, 0]],
+                           [[-1, 1], [-1, 0], [0, 1]],
+                           [[1, 1], [0, 1], [1, 0]],
+                           [[1, -1], [1, 0], [0, -1]]]:
+                corn_y = a_cell[0] + direct[0][0]
+                if corn_y < 0 or corn_y >= rows:
                     continue
-                try_end_x = a_cell[1] + direct[0][1]
-                if try_end_x < 0 or try_end_x >= cols:
+                corn_x = a_cell[1] + direct[0][1]
+                if corn_x < 0 or corn_x >= cols:
                     continue
-                if matrix[try_end_y, try_end_x] != direct[1]:
+                if matrix[corn_y, corn_x] != '+':
                     continue
-                corn_1_y = a_cell[0] + direct[2][0]
-                corn_1_x = a_cell[1] + direct[2][1]
-                corn_2_y = a_cell[0] + direct[3][0]
-                corn_2_x = a_cell[1] + direct[3][1]
-                if (matrix[corn_1_y, corn_1_x] == '+' and
-                        matrix[corn_2_y, corn_2_x] == '+'):
-                    tunnel_end_cells.append([corn_1_y, corn_1_x])
-                    tunnel_end_cells.append([corn_2_y, corn_2_x])
+                edge_1_y = a_cell[0] + direct[1][0]
+                edge_1_x = a_cell[1] + direct[1][1]
+                edge_2_y = a_cell[0] + direct[2][0]
+                edge_2_x = a_cell[1] + direct[2][1]
+                if matrix[edge_1_y, edge_1_x] not in edges:
+                    continue
+                if matrix[edge_2_y, edge_2_x] not in edges:
+                    continue
+                if [corn_y, corn_x] not in tunnel_end_cells:
+                    tunnel_end_cells.append([corn_y, corn_x])
 
         if dead_group:
             dead_cells = dead_cells + new_group
@@ -542,6 +547,7 @@ def clean_matrix_shapes(matrix,
         # print('intersections:', intersections)
         for intersect in intersections:
             # intersect = list(intersect)
+            # print('intersect:', intersect)
             y_coord, x_coord = intersect
             if (y_coord, x_coord) in this_ht_end_group:
                 continue
@@ -1248,6 +1254,91 @@ class TestMethods(unittest.TestCase):
 ||
 |+------+
 +-------+
+""".strip('\n')]
+        print('shape:\n', shape)
+        result = break_evil_pieces(shape)
+        print('result:\n')
+        for a_result in result:
+            print(a_result, '\n\n')
+        print('answer:\n')
+        for an_answer in answer:
+            print(an_answer, '\n\n')
+        pass_result = (collections.Counter(result) ==
+                       collections.Counter(answer))
+        self.assertTrue(pass_result)
+        print('correct!')
+
+        # Test - 67 - 
+        print('Test 67: ', end='')
+        shape = """
++----+
+|    |
+|    +----+
+|    |    |
+|    +---+|
+|    |   ||
+|+---+   ||
+||       ||
+|+-------+|
++---------+
+""".strip('\n')
+        answer = [
+"""
+    +---+
+    |   |
++---+   |
+|       |
++-------+
+""".strip('\n'),
+"""
++----+
+|    |
+|    +----+
+|    |    |
+|    +---+|
+|    |   ||
+|+---+   ||
+||       ||
+|+-------+|
++---------+
+""".strip('\n')]
+        print('shape:\n', shape)
+        result = break_evil_pieces(shape)
+        print('result:\n')
+        for a_result in result:
+            print(a_result, '\n\n')
+        print('answer:\n')
+        for an_answer in answer:
+            print(an_answer, '\n\n')
+        pass_result = (collections.Counter(result) ==
+                       collections.Counter(answer))
+        self.assertTrue(pass_result)
+        print('correct!')
+
+        # Test - 77? - 
+        print('Test 77?: ', end='')
+        shape = """
++-----+
+|     +--+
++----+   +---+
+     |       |
+     +---+ +-+
+         | |
+         | |
+         | |
+         +-+
+""".strip('\n')
+        answer = [
+"""
++-----+
+|     +--+
++----+   +---+
+     |       |
+     +---+ +-+
+         | |
+         | |
+         | |
+         +-+
 """.strip('\n')]
         print('shape:\n', shape)
         result = break_evil_pieces(shape)
