@@ -47,20 +47,24 @@ def break_evil_pieces(shape):
     inside_half_cells = find_internal_half_cells(matrix)
     # print('inside_half_cells:', inside_half_cells)
 
-    inside_groups, border_cells = find_internal_half_groups(matrix,
-                                                            inside_full_cells,
-                                                            inside_half_cells,
-                                                            inside_full_groups,
-                                                            border_cells,
-                                                            dead_cells)
+    inside_groups, border_cells, half_tunnel_end_groups = (
+        find_internal_half_groups(matrix,
+                                  inside_full_cells,
+                                  inside_half_cells,
+                                  inside_full_groups,
+                                  border_cells,
+                                  dead_cells))
     # print('No groups:', len(inside_groups))
-    # print('inside_groups:', inside_groups)
+    print('57:inside_groups:', inside_groups)
     # print('border_cells:', border_cells)
     # print('half_tunnel_end_groups:', half_tunnel_end_groups)
     # print('dead_cells:', dead_cells)
 
-    inside_groups, border_cells, = crop_shift_cells(inside_groups,
-                                                    border_cells)
+    inside_groups, border_cells , half_tunnel_end_groups = (
+        crop_shift_cells(inside_groups,
+                         border_cells,
+                         half_tunnel_end_groups))
+    print('64:inside_groups:', inside_groups)
     # print('border_cells:', border_cells)
     # print('half_tunnel_end_groups:', half_tunnel_end_groups)
 
@@ -68,7 +72,9 @@ def break_evil_pieces(shape):
     # print('new_matrix_shapes:\n', new_matrix_shapes)
 
     new_matrix_shapes = clean_matrix_shapes(matrix,
-                                            new_matrix_shapes)
+                                            new_matrix_shapes,
+                                            inside_groups,
+                                            half_tunnel_end_groups)
     # print('\ncleaned new_matrix_shapes:\n', new_matrix_shapes)
 
     new_matrix_shape_strings = matrices_to_strings(new_matrix_shapes)
@@ -197,6 +203,7 @@ def find_internal_half_groups(matrix,
     # internal_groups = []
     new_inter_groups = in_full_groups[:]
     new_border_cells = border_cells[:]
+    half_tunnel_end_groups = [[] for _ in range(len(new_inter_groups))]
     while half_cells:
         a_cell = half_cells.pop(0)
         # print('int_cells:', int_cells)
@@ -204,6 +211,7 @@ def find_internal_half_groups(matrix,
         full_groups_attached = []
         new_group_search = [a_cell]
         group_border_cells = []
+        half_tunnel_ends = []
         dead_group = False
         while new_group_search:
             a_cell = new_group_search.pop(0)
@@ -272,6 +280,19 @@ def find_internal_half_groups(matrix,
                     if test_cell not in group_border_cells:
                         # print('adding border:', test_cell)
                         group_border_cells.append(test_cell)
+                # Look for terminating half-cell tunnels to preserve ends
+                for direct_pair in [[[-1, -0.5], [-1, 0.5]],
+                                    [[1, -0.5], [1, 0.5]]]:
+                    test_1 = [int(round(a_cell[0] + direct_pair[0][0], 0)),
+                              int(round(a_cell[1] + direct_pair[0][1], 0))]
+                    test_2 = [int(round(a_cell[0] + direct_pair[1][0], 0)),
+                              int(round(a_cell[1] + direct_pair[1][1], 0))]
+                    test_1_y, test_1_x = test_1
+                    test_2_y, test_2_x = test_2
+                    if (matrix[test_1_y, test_1_x] == '+' and
+                            matrix[test_2_y, test_2_x] == '+'):
+                        half_tunnel_ends.append(test_1)
+                        half_tunnel_ends.append(test_2)
             elif a_cell[1] == int(a_cell[1]):
                 # Search horizontally
                 # print('a_cell:', a_cell, ', searching horizontally')
@@ -329,6 +350,19 @@ def find_internal_half_groups(matrix,
                     # print('matrix[*test_pos]:', matrix[*test_pos])
                     if test_cell not in group_border_cells:
                         group_border_cells.append(test_cell)
+                # Look for terminating half-cell tunnels to preserve ends
+                for direct_pair in [[[-0.5, -1], [0.5, -1]],
+                                    [[-0.5, 1], [0.5, 1]]]:
+                    test_1 = [int(round(a_cell[0] + direct_pair[0][0], 0)),
+                              int(round(a_cell[1] + direct_pair[0][1], 0))]
+                    test_2 = [int(round(a_cell[0] + direct_pair[1][0], 0)),
+                              int(round(a_cell[1] + direct_pair[1][1], 0))]
+                    test_1_y, test_1_x = test_1
+                    test_2_y, test_2_x = test_2
+                    if (matrix[test_1_y, test_1_x] == '+' and
+                            matrix[test_2_y, test_2_x] == '+'):
+                        half_tunnel_ends.append(test_1)
+                        half_tunnel_ends.append(test_2)
             else:
                 raise ValueError('Something went wrong')
 
@@ -346,6 +380,7 @@ def find_internal_half_groups(matrix,
                                         key=lambda x: (x[0], x[1]))
             new_inter_groups.append(new_group)
             new_border_cells.append(group_border_cells)
+            half_tunnel_end_groups.append(half_tunnel_ends)
         elif len(full_groups_attached) == 1:  # add halfs to full groups
             # internal space
             new_group = (new_group +
@@ -356,6 +391,7 @@ def find_internal_half_groups(matrix,
                 # print('dead_cells:', dead_cells)
                 del new_inter_groups[full_groups_attached[0]]
                 del new_border_cells[full_groups_attached[0]]
+                del half_tunnel_end_groups[full_groups_attached[0]]
                 # print('new_inter_groups:', new_inter_groups)
                 continue
             new_inter_groups[full_groups_attached[0]] = new_group[:]
@@ -365,6 +401,7 @@ def find_internal_half_groups(matrix,
             group_border_cells = sorted(group_border_cells,
                                         key=lambda x: (x[0], x[1]))
             new_border_cells[full_groups_attached[0]] = group_border_cells[:]
+            half_tunnel_end_groups[full_groups_attached[0]] = half_tunnel_ends
         else:  # add halfs and join connected full groups
             for a_joined_group_no in full_groups_attached:
                 # internal space
@@ -372,12 +409,15 @@ def find_internal_half_groups(matrix,
                 # borders
                 group_border_cells = (group_border_cells +
                                       new_border_cells[a_joined_group_no])
+                half_tunnel_ends = (half_tunnel_ends +
+                                    half_tunnel_end_groups[a_joined_group_no])
             # print('new_group:', new_group)
 
             # out with the old
             for index in sorted(full_groups_attached, reverse=True):
                 del new_inter_groups[index]
                 del new_border_cells[index]
+                del half_tunnel_end_groups[index]
 
             # in with the new
             if dead_group:
@@ -385,25 +425,30 @@ def find_internal_half_groups(matrix,
                 continue
             new_inter_groups.append(new_group)
             new_border_cells.append(group_border_cells)
+            half_tunnel_end_groups.append(half_tunnel_ends)
         # print('end of groups:new_inter_groups:', new_inter_groups)
         # print('end of groups:new_border_cells:', new_border_cells)
 
-    return new_inter_groups, new_border_cells
+    return new_inter_groups, new_border_cells, half_tunnel_end_groups
 
 
-def crop_shift_cells(inside_groups, border_cells):
+def crop_shift_cells(inside_groups, border_cells, half_tunnel_end_groups):
     new_inside_groups = []
     new_border_cells = []
+    new_half_tunnel_end_groups = []
     for shape_no, a_border in enumerate(border_cells):
         # print('a_border:', a_border)
         this_group = np.copy(inside_groups[shape_no])
         this_border = np.copy(a_border)
+        this_ht_end_group = np.copy(half_tunnel_end_groups[shape_no])
         # print('this_border:', this_border)
-        gr_y_coords = np.array([int(border[0]) for border in this_group])
-        gr_x_coords = np.array([int(border[1]) for border in this_group])
+        gr_y_coords = np.array([a_space[0] for a_space in this_group])
+        gr_x_coords = np.array([a_space[1] for a_space in this_group])
         y_coords = np.array([int(border[0]) for border in this_border])
         x_coords = np.array([int(border[1]) for border in this_border])
         shape = np.array([border[2] for border in this_border])
+        ht_eg_y_coords = np.array([int(eg[0]) for eg in this_ht_end_group])
+        ht_eg_x_coords = np.array([int(eg[1]) for eg in this_ht_end_group])
         # print('y_coords:', y_coords, ', x_coords:', x_coords)
         # print('ht_eg_y_coords:', ht_eg_y_coords, ', ht_eg_x_coords:',
         #       ht_eg_x_coords)
@@ -413,12 +458,16 @@ def crop_shift_cells(inside_groups, border_cells):
         gr_x_coords = gr_x_coords - x_min
         y_coords = y_coords - y_min
         x_coords = x_coords - x_min
+        ht_eg_y_coords = ht_eg_y_coords - y_min
+        ht_eg_x_coords = ht_eg_x_coords - x_min
         # y_max = border_y.max()
         group = list(zip(gr_y_coords, gr_x_coords))
         border = list(zip(y_coords, x_coords, shape))
+        ht_eg = list(zip(ht_eg_y_coords, ht_eg_x_coords))
         new_inside_groups.append(group)
         new_border_cells.append(border)
-    return new_inside_groups, new_border_cells
+        new_half_tunnel_end_groups.append(ht_eg)
+    return new_inside_groups, new_border_cells, new_half_tunnel_end_groups
 
 
 def create_shapes(border_cells):
@@ -444,31 +493,102 @@ def create_shapes(border_cells):
     return new_matrix_group
 
 
-def clean_matrix_shapes(matrix, matrix_shapes):
+def clean_matrix_shapes(matrix,
+                        matrix_shapes,
+                        inside_groups,
+                        half_tunnel_end_groups):
+    # print('inside_groups:', inside_groups)
     rows, cols = matrix.shape
     cleaned_matrix_shapes = []
+    horiz_sym = ('-', '+')
+    vert_sym = ('|', '+')
     for shape_no, a_matrix_shape in enumerate(matrix_shapes):
+        print('looking at shape:\n', a_matrix_shape)
+        print('inside_group:', inside_groups[shape_no])
         rows, cols = a_matrix_shape.shape
+        this_inside_group = inside_groups[shape_no]
+        this_ht_end_group = half_tunnel_end_groups[shape_no]
+        print('this_ht_end_group:', this_ht_end_group)
         intersections = list(zip(*[list(x)
                                    for x in np.where(a_matrix_shape == '+')]))
         # print('intersections:', intersections)
         for intersect in intersections:
             # intersect = list(intersect)
             y_coord, x_coord = intersect
+            if (y_coord, x_coord) in this_ht_end_group:
+                continue
             x_pre = x_coord - 1
+            x_0_5_pre = x_coord - 0.5
             x_post = x_coord + 1
+            x_0_5_post = x_coord + 0.5
             y_pre = y_coord - 1
+            y_0_5_pre = y_coord - 0.5
             y_post = y_coord + 1
+            y_0_5_post = y_coord + 0.5
+            m10 = a_matrix_shape[y_coord, x_pre] if x_pre >= 0 else ''
+            m12 = a_matrix_shape[y_coord, x_post] if x_post < cols else ''
+            m00 = (a_matrix_shape[y_pre, x_pre] if (y_pre >= 0 and x_pre >= 0)
+                   else '')
+            m01 = a_matrix_shape[y_pre, x_coord] if y_pre >= 0 else ''
+            m02 = (a_matrix_shape[y_pre, x_post]
+                   if (y_pre >= 0 and x_post < cols) else '')
+            m20 = (a_matrix_shape[y_post, x_pre]
+                   if (y_post < rows and x_pre > 0) else '')
+            m21 = a_matrix_shape[y_post, x_coord] if y_post < rows else ''
+            m22 = (a_matrix_shape[y_post, x_post]
+                   if (y_post < rows and x_post < cols) else '')
+            m0_50 = ' ' if (y_0_5_pre, x_pre) in this_inside_group else ''
+            m0_51 = ' ' if (y_0_5_pre, x_coord) in this_inside_group else ''
+            m0_52 = ' ' if (y_0_5_pre, x_post) in this_inside_group else ''
+            m1_50 = ' ' if (y_0_5_post, x_pre) in this_inside_group else ''
+            m1_51 = ' ' if (y_0_5_post, x_coord) in this_inside_group else ''
+            m1_52 = ' ' if (y_0_5_post, x_post) in this_inside_group else ''
+
+            m00_5 = ' ' if (y_pre, x_0_5_pre) in this_inside_group else ''
+            m10_5 = ' ' if (y_coord, x_0_5_pre) in this_inside_group else ''
+            m20_5 = ' ' if (y_post, x_0_5_pre) in this_inside_group else ''
+            m01_5 = ' ' if (y_pre, x_0_5_post) in this_inside_group else ''
+            m11_5 = ' ' if (y_coord, x_0_5_post) in this_inside_group else ''
+            m21_5 = ' ' if (y_post, x_0_5_post) in this_inside_group else ''
+
+            if m10 in horiz_sym and m12 in horiz_sym:
+                if (# (m00 == ' ' and m01 == ' ' and m02 == ' ') or
+                    (m01 == ' ') or
+                    # (m0_50 == ' ' and m0_51 == ' ' and m0_52 == ' ') or
+                    (m0_51 == ' ') or
+                    # (m20 == ' ' and m21 == ' ' and m22 == ' ') or
+                    (m21 == ' ') or
+                        # (m1_50 == ' ' and m1_51 == ' ' and m1_52 == ' ')):
+                        (m1_51 == ' ')):
+                    print('replacing at intersect:', intersect, ', -')
+                    a_matrix_shape[intersect] = '-'
+                else:
+                    print('not replacing horiz. at intersect:', intersect)
+            if m01 in vert_sym and m21 in vert_sym:
+                # if ((m00 == ' ' and m10 == ' ' and m20 == ' ') or
+                if ((m10 == ' ') or
+                    # (m00_5 == ' ' and m10_5 == ' ' and m20_5 == ' ') or
+                    (m10_5 == ' ') or
+                    # (m02 == ' ' and m12 == ' ' and m22 == ' ') or
+                    (m12 == ' ') or
+                        # (m01_5 == ' ' and m11_5 == ' ' and m21_5 == ' ')):
+                        (m11_5 == ' ')):
+                    print('replacing at intersect:', intersect, ', |')
+                    a_matrix_shape[intersect] = '|'
+                else:
+                    print('not replacing vert. at intersect:', intersect)
+            else:
+                pass
+                print('no replacement')
             # print('intersect:', intersect)
             # print('list(intersect):', list(intersect))
             # print('half_tunnel_end_groups[shape_no]:',
             #       half_tunnel_end_groups[shape_no])
+            """
             north = a_matrix_shape[y_pre, x_coord] if y_pre >= 0 else ''
             south = a_matrix_shape[y_post, x_coord] if y_post < rows else ''
             east = a_matrix_shape[y_coord, x_post] if x_post < cols else ''
             west = a_matrix_shape[y_coord, x_pre] if x_pre >= 0 else ''
-            horiz_sym = ('-', '+')
-            vert_sym = ('|', '+')
             if not ((west in horiz_sym or east in horiz_sym) and
                     (north in vert_sym or south in vert_sym)):
                 if (west in horiz_sym and east in horiz_sym):
@@ -479,6 +599,7 @@ def clean_matrix_shapes(matrix, matrix_shapes):
                     a_matrix_shape[intersect] = '|'
                 else:
                     raise ValueError("I'm confused")
+            """
 
         cleaned_matrix_shapes.append(a_matrix_shape)
     return cleaned_matrix_shapes
@@ -1003,6 +1124,117 @@ class TestMethods(unittest.TestCase):
  +--------+|     |
 +----------+     |
 +----------------+
+""".strip('\n'),
+"""
++-----------------+
+|+---------------+|
+||        ++     ||
+|+--------+|     ||
++----------+     ||
++----------------+|
+|+----------------+
+||
+|+------+
++-------+
+""".strip('\n')]
+        print('shape:\n', shape)
+        result = break_evil_pieces(shape)
+        print('result:\n')
+        for a_result in result:
+            print(a_result, '\n\n')
+        print('answer:\n')
+        for an_answer in answer:
+            print(an_answer, '\n\n')
+        pass_result = (collections.Counter(result) ==
+                       collections.Counter(answer))
+        self.assertTrue(pass_result)
+        print('correct!')
+
+        # Test - 175 - 
+        print('Test 75: ', end='')
+        shape = """
+  +-----------------+
+  |+--------++-----+|
+  ||        ++     ||
+  |+--------+|     ||
++++----------+     ||
+|++----------------+|
+|||+----------------+
+||||
+|||+------+
+||+-------+
+|+--------+
++---------+
+
++-----------+
+|+++------++|
+||++      ++|
+||        |||
+|+--------+||
++----------+|
++-----------+
+""".strip('\n')
+        answer = [
+"""
+           +-----+
+           |     |
+           |     |
++----------+     |
++----------------+
+""".strip('\n'),
+"""
+++
+++
+""".strip('\n'),
+"""
+++
+++
+""".strip('\n'),
+"""
+++
+++
+""".strip('\n'),
+"""
+++
+++
+""".strip('\n'),
+"""
+++
+||
+||
+||
+|+-------+
++--------+
+""".strip('\n'),
+"""
+++
+||
+||
+||
+||
+||
+|+--------+
++---------+
+""".strip('\n'),
+"""
++++------+
+|++      |
+|        |
++--------+
+""".strip('\n'),
+"""
++--------+
+|        |
++--------+
+""".strip('\n'),
+"""
++-----------+
+|+---------+|
+||        ++|
+||        |||
+|+--------+||
++----------+|
++-----------+
 """.strip('\n'),
 """
 +-----------------+
