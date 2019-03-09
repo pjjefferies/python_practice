@@ -46,7 +46,7 @@ def break_evil_pieces(shape):
     # print('corner_keeper_groups:', corner_keeper_groups)
 
     inside_half_cells = find_internal_half_cells(matrix)
-    print('inside_half_cells:', inside_half_cells)
+    # print('inside_half_cells:', inside_half_cells)
 
     inside_groups, border_cells, corner_keeper_groups, outside_space = (
         find_internal_half_groups(matrix,
@@ -198,8 +198,8 @@ def find_internal_half_cells(matrix):
         for col_no in range(cols):
             next_col_no = col_no + 1
             # Search for vertical, narrow passageways
-            print('row_no:', row_no, ', next_row_no:', next_row_no,
-                  'col_no:', col_no, ', next_col_no:', next_col_no)
+            # print('row_no:', row_no, ', next_row_no:', next_row_no,
+            #       'col_no:', col_no, ', next_col_no:', next_col_no)
             if next_col_no < cols:
                 if ((matrix[row_no, col_no] in ('|', '+') and
                      matrix[row_no, next_col_no] == '|') or
@@ -600,20 +600,20 @@ def clean_matrix_shapes(matrix,
     horiz_sym = ('-', '+')
     vert_sym = ('|', '+')
     for shape_no, a_matrix_shape in enumerate(matrix_shapes):
-        print('looking at shape:\n', a_matrix_shape)
+        # print('looking at shape:\n', a_matrix_shape)
         # print('inside_group:', inside_groups[shape_no])
         rows, cols = a_matrix_shape.shape
         this_inside_group = inside_groups[shape_no]
         this_ht_end_group = corner_keeper_groups[shape_no]
         this_outside_space = outside_spaces_groups[shape_no]
         # print('this_ht_end_group:', this_ht_end_group)
-        print('this_outside_space:', this_outside_space)
+        # print('this_outside_space:', this_outside_space)
         intersections = list(zip(*[list(x)
                                    for x in np.where(a_matrix_shape == '+')]))
-        print('intersections:', intersections)
+        # print('intersections:', intersections)
         for intersect in intersections:
             # intersect = list(intersect)
-            print('intersect:', intersect)
+            # print('intersect:', intersect)
             y_coord, x_coord = intersect
             if (y_coord, x_coord) in this_ht_end_group:
                 continue
@@ -627,71 +627,99 @@ def clean_matrix_shapes(matrix,
             y_0_5_post = y_coord + 0.5
             m10 = a_matrix_shape[y_coord, x_pre] if x_pre >= 0 else 'x'
             m12 = a_matrix_shape[y_coord, x_post] if x_post < cols else 'x'
-            # m00 = (a_matrix_shape[y_pre, x_pre]if (y_pre >= 0 and x_pre >= 0)
-            #        else '')
-            # m01 = a_matrix_shape[y_pre, x_coord] if y_pre >= 0 else 'x'
+            m00 = (a_matrix_shape[y_pre, x_pre] if (y_pre >= 0 and x_pre >= 0)
+                   else 'x')
+            m01 = a_matrix_shape[y_pre, x_coord] if y_pre >= 0 else 'x'
 
+            # m01 = (' ' if (y_pre, x_coord) in this_outside_space else
+            #        (a_matrix_shape[y_pre, x_coord] if y_pre >= 0 else ' '))
 
-            m01 = (' ' if (y_pre, x_coord) in this_outside_space else
-                   (a_matrix_shape[y_pre, x_coord] if y_pre >= 0 else ' '))
-
-            # m02 = (a_matrix_shape[y_pre, x_post]
-            #        if (y_pre >= 0 and x_post < cols) else 'x')
-            # m20 = (a_matrix_shape[y_post, x_pre]
-            #        if (y_post < rows and x_pre > 0) else 'x')
+            m02 = (a_matrix_shape[y_pre, x_post]
+                   if (y_pre >= 0 and x_post < cols) else 'x')
+            m20 = (a_matrix_shape[y_post, x_pre]
+                   if (y_post < rows and x_pre > 0) else 'x')
             m21 = a_matrix_shape[y_post, x_coord] if y_post < rows else 'x'
-            # m22 = (a_matrix_shape[y_post, x_post]
-            #        if (y_post < rows and x_post < cols) else '')
-            # m0_50 = ' ' if (y_0_5_pre, x_pre) in this_inside_group else 'z'
-            # m0_51 = ' ' if (y_0_5_pre, x_coord) in this_inside_group else 'z'
+            m22 = (a_matrix_shape[y_post, x_post]
+                   if (y_post < rows and x_post < cols) else 'x')
+            m0_50 = ' ' if (y_0_5_pre, x_pre) in this_inside_group else 'z'
+            m0_51 = ' ' if (y_0_5_pre, x_coord) in this_inside_group else 'z'
 
-
-            m0_51 = (' ' if (y_0_5_pre, x_coord) in this_outside_space else
-                     ' ' if (y_0_5_pre, x_coord) in this_inside_group else'z')
-            # m0_52 = ' ' if (y_0_5_pre, x_post) in this_inside_group else 'z'
-            # m1_50 = ' ' if (y_0_5_post, x_pre) in this_inside_group else 'z'
+            # m0_51 = (' ' if (y_0_5_pre, x_coord) in this_outside_space else
+            #          ' ' if (y_0_5_pre, x_coord) in this_inside_group else'z')
+            m0_52 = ' ' if (y_0_5_pre, x_post) in this_inside_group else 'z'
+            m1_50 = ' ' if (y_0_5_post, x_pre) in this_inside_group else 'z'
             m1_51 = ' ' if (y_0_5_post, x_coord) in this_inside_group else 'z'
-            # m1_52 = ' ' if (y_0_5_post, x_post) in this_inside_group else 'z'
+            m1_52 = ' ' if (y_0_5_post, x_post) in this_inside_group else 'z'
 
-            # m00_5 = ' ' if (y_pre, x_0_5_pre) in this_inside_group else 'z'
+            m00_5 = ' ' if (y_pre, x_0_5_pre) in this_inside_group else 'z'
             m10_5 = ' ' if (y_coord, x_0_5_pre) in this_inside_group else 'z'
-            # m20_5 = ' ' if (y_post, x_0_5_pre) in this_inside_group else 'z'
-            # m01_5 = ' ' if (y_pre, x_0_5_post) in this_inside_group else 'z'
+            m20_5 = ' ' if (y_post, x_0_5_pre) in this_inside_group else 'z'
+            m01_5 = ' ' if (y_pre, x_0_5_post) in this_inside_group else 'z'
             m11_5 = ' ' if (y_coord, x_0_5_post) in this_inside_group else 'z'
-            # m21_5 = ' ' if (y_post, x_0_5_post) in this_inside_group else 'z'
+            m21_5 = ' ' if (y_post, x_0_5_post) in this_inside_group else 'z'
 
             # Looking for Horizontal non-intersections to replace
             if m10 in horiz_sym and m12 in horiz_sym:
-                print('found a potential horiz. non-intersection')
-                if ((m01 == ' ' or m0_51 == ' ') and
-                        (m21 in ' x' or m1_51 in ' x')):
-                    print('yup - 1')
+                # print('found a potential horiz. non-intersection')
+                if ((m00 == ' ' or m0_50 == ' ') and
+                    (m01 == ' ' or m0_51 == ' ') and
+                        (m02 == ' ' or m0_52 == ' ')):
+                    # print('yup - 1')
                     a_matrix_shape[intersect] = '-'
-                elif ((m21 == ' ' or m1_51 == ' ') and
-                        (m01 in ' x' or m0_51 in ' x')):
+                elif ((m20 == ' ' or m1_50 == ' ') and
+                      (m21 == ' ' or m1_51 == ' ') and
+                      (m22 == ' ' or m1_52 == ' ')):
                     # print('replacing at intersect:', intersect, ', -')
-                    print('yup - 2')
+                    # print('yup - 2')
                     a_matrix_shape[intersect] = '-'
-                else:
-                    pass
-                    print('not replacing horiz. at intersect:', intersect)
+                elif (m01 == ' ' or m21 == ' '):
+                    a_matrix_shape[intersect] = '-'
+                elif ((m0_51 == ' ' or m1_51 == ' ') and
+                      (m10 == '+' and m12 == '+')):
+                    a_matrix_shape[intersect] = '-'
+                elif (m0_51 == ' ' and
+                      ((m02 == '+' and m12 == '+') or
+                       (m00 == '+' and m10 == '+'))):
+                    a_matrix_shape[intersect] = '-'
+                elif (m1_51 == ' ' and
+                      ((m12 == '+' and m22 == '+') or
+                       (m10 == '+' and m20 == '+'))):
+                    a_matrix_shape[intersect] = '-'
+                # else:
+                #     pass
+                    # print('not replacing horiz. at intersect:', intersect)
 
             # Looking for Vertical non-intersetions to replace
             if m01 in vert_sym and m21 in vert_sym:
-                print('found a potential vert. non-intersection')
+                # print('found a potential vert. non-intersection')
                 # if ((m00 == ' ' and m10 == ' ' and m20 == ' ') or
-                if ((m10 == ' ' or m10_5 == ' ') and
-                        (m12 in ' x' or m11_5 in ' x')):
-                    print('yup - 1')
+                if ((m00 == ' ' or m00_5 == ' ') and
+                    (m10 == ' ' or m10_5 == ' ') and
+                        (m20 == ' ' or m20_5 == ' ')):
+                    # print('yup - 1')
                     a_matrix_shape[intersect] = '|'
-                elif ((m12 == ' ' or m11_5 == ' ') and
-                      (m10 in ' x' or m10_5 in ' x')):
+                elif ((m02 == ' ' or m01_5 == ' ') and
+                      (m12 == ' ' or m11_5 == ' ') and
+                      (m22 == ' ' or m21_5 == ' ')):
                     # print('replacing at intersect:', intersect, ', |')
-                    print('yup - 2')
+                    # print('yup - 2')
                     a_matrix_shape[intersect] = '|'
-                else:
-                    pass
-                    print('not replacing vert. at intersect:', intersect)
+                elif (m10 == ' ' or m12 == ' '):
+                    a_matrix_shape[intersect] = '|'
+                elif ((m10_5 == ' ' or m11_5 == ' ') and
+                      (m01 == '+' and m21 == '+')):
+                    a_matrix_shape[intersect] = '|'
+                elif (m10_5 == ' ' and
+                      ((m20 == '+' and m21 == '+') or
+                       (m00 == '+' and m01 == '+'))):
+                    a_matrix_shape[intersect] = '|'
+                elif (m11_5 == ' ' and
+                      ((m21 == '+' and m22 == '+') or
+                       (m01 == '+' and m02 == '+'))):
+                    a_matrix_shape[intersect] = '|'
+                # else:
+                #     pass
+                    # print('not replacing vert. at intersect:', intersect)
             else:
                 pass
                 # print('no replacement')
@@ -1210,10 +1238,148 @@ class TestMethods(unittest.TestCase):
          +-+
 """.strip('\n')]
 
+        shapes[73] = """
+*++++++++++++*
+*++--++++--++*
+*++++++++++++*
+*+++------+++*
+*++|++++++|++*
+*++++++++++++*
+""".strip('\n')
+
+        answers[73] = [
+"""
+++
+++
+""".strip('\n'),  # 1
+"""
+++
+++
+""".strip('\n'),
+"""
+++
+++
+""".strip('\n'),
+"""
+++
+++
+""".strip('\n'),
+"""
+++
+++
+""".strip('\n'),  # 5
+"""
+++
+++
+""".strip('\n'),
+"""
+++
+++
+""".strip('\n'),
+"""
+++
+++
+""".strip('\n'),
+"""
+++
+++
+""".strip('\n'),
+"""
+++
+++
+""".strip('\n'),  # 10
+"""
+++
+++
+""".strip('\n'),
+"""
+++
+++
+""".strip('\n'),
+"""
+++
+++
+""".strip('\n'),
+"""
+++
+++
+""".strip('\n'),
+"""
+++
+++
+""".strip('\n'),  # 15
+"""
+++
+++
+""".strip('\n'),
+"""
+++
+++
+""".strip('\n'),
+"""
+++
+++
+""".strip('\n'),
+"""
+++
+++
+""".strip('\n'),
+"""
+++
+++
+""".strip('\n'),  # 20
+"""
+++
+++
+""".strip('\n'),
+"""
+++
+++
+""".strip('\n'),
+"""
+++
+++
+""".strip('\n'),  # 23
+"""
+++
+||
+++
+""".strip('\n'),
+"""
+++
+||
+++
+""".strip('\n'),  # 25
+"""
++--+
++--+
+""".strip('\n'),
+"""
++--+
++--+
+""".strip('\n'),
+"""
++--+
++--+
+""".strip('\n'),
+"""
++--+
++--+
+""".strip('\n'),
+"""
++------+
++------+
+""".strip('\n'),  # 30
+"""
++------+
+|+----+|
+++    ++
+""".strip('\n')]  # 31
+
         for a_test_no in sorted(shapes, key=lambda x: int(x)):
 
-            if a_test_no != 75:
-                continue
+            # if a_test_no != 75:
+            #     continue
 
             print(''.join(['Test ', str(a_test_no), ': ']), end='')
             shape = shapes[a_test_no]
@@ -1231,6 +1397,7 @@ class TestMethods(unittest.TestCase):
                     if (answer_counter[an_answer] >
                             result_counter.get(an_answer, 0)):
                         missing_answers.append(an_answer)
+                        missing_answers.append('')
                 print('\n'.join(['\nType of shapes that your answer was ' +
                                  'missing:'] + missing_answers))
                 extra_results = []
@@ -1238,6 +1405,7 @@ class TestMethods(unittest.TestCase):
                     if result_counter[a_result] > answer_counter.get(a_result,
                                                                      0):
                         extra_results.append(a_result)
+                        extra_results.append('')
                 print('\n'.join(['\nType of shapes that your solution ' +
                                  "shouldn't return:"] + extra_results))
             self.assertTrue(pass_result)
