@@ -17,7 +17,7 @@ USE_BREAK_DISPLAY = True
 def break_evil_pieces(shape):
     if len(shape) == 0:
         return []
-    print('\nshape:\n', shape)
+    # print('\nshape:\n', shape)
     # if strings in shape are not equal length, pad
     shape_matrix = shape.strip('\n').split('\n')
     # print('shape_matrix:', shape_matrix)
@@ -46,7 +46,7 @@ def break_evil_pieces(shape):
     # print('corner_keeper_groups:', corner_keeper_groups)
 
     inside_half_cells = find_internal_half_cells(matrix)
-    # print('inside_half_cells:', inside_half_cells)
+    print('inside_half_cells:', inside_half_cells)
 
     inside_groups, border_cells, corner_keeper_groups, outside_space = (
         find_internal_half_groups(matrix,
@@ -78,7 +78,7 @@ def break_evil_pieces(shape):
     new_matrix_shapes = clean_matrix_shapes(matrix,
                                             new_matrix_shapes,
                                             inside_groups,
-                                            corner_keeper_groups
+                                            corner_keeper_groups,
                                             outside_space)
     # print('\ncleaned new_matrix_shapes:\n', new_matrix_shapes)
 
@@ -167,7 +167,7 @@ def find_internal_full_groups(matrix, internal_cells):
                 edge_1_x = a_cell[1] + direct[1][1]
                 edge_2_y = a_cell[0] + direct[2][0]
                 edge_2_x = a_cell[1] + direct[2][1]
-                if (matrix[edge_1_y, edge_1_x] in edges and 
+                if (matrix[edge_1_y, edge_1_x] in edges and
                         matrix[edge_2_y, edge_2_x] in edges):
                     # if [corn_y, corn_x] not in corner_keepers:
                     corner_keepers.add((corn_y, corn_x))
@@ -177,9 +177,10 @@ def find_internal_full_groups(matrix, internal_cells):
             continue
         # print('new_group:', new_group)
         # new_group = sorted(new_group, key=lambda x: (x[0], x[1]))
-        #group_border_cells = sorted(group_border_cells,
+        # group_border_cells = sorted(group_border_cells,
         #                            key=lambda x: (x[0], x[1]))
-        # corner_keeper_group = sorted(corner_keeper_group, key=lambda x: (x[0], x[1]))
+        # corner_keeper_group = sorted(corner_keeper_group, key=lambda x:
+        # (x[0], x[1]))
         internal_groups.append(new_group)
         border_cells.append(group_border_cells)
         corner_keeper_groups.append(corner_keepers)
@@ -197,8 +198,8 @@ def find_internal_half_cells(matrix):
         for col_no in range(cols):
             next_col_no = col_no + 1
             # Search for vertical, narrow passageways
-            # print('row_no:', row_no, ', next_row_no:', next_row_no,
-            #       'col_no:', col_no, ', next_col_no:', next_col_no)
+            print('row_no:', row_no, ', next_row_no:', next_row_no,
+                  'col_no:', col_no, ', next_col_no:', next_col_no)
             if next_col_no < cols:
                 if ((matrix[row_no, col_no] in ('|', '+') and
                      matrix[row_no, next_col_no] == '|') or
@@ -314,7 +315,7 @@ def find_internal_half_groups(matrix,
                     # print('matrix[*test_pos]:', matrix[*test_pos])
                     # print('current group_border_cells:', group_border_cells)
                     # if test_cell not in group_border_cells:
-                        # print('adding border:', test_cell)
+                    # print('adding border:', test_cell)
                     group_border_cells.add(test_cell)
                 # Look for terminating half-cell tunnels to preserve ends
                 for direct_pair in [[[-1, -0.5], [-1, 0.5]],
@@ -410,7 +411,7 @@ def find_internal_half_groups(matrix,
             # print('new_group:', new_group)
             # new_group = sorted(new_group, key=lambda x: (x[0], x[1]))
             if dead_group:
-                outside_space = outside_space + new_group
+                outside_space = outside_space | new_group
                 continue
             # group_border_cells = sorted(group_border_cells,
             #                             key=lambda x: (x[0], x[1]))
@@ -460,7 +461,7 @@ def find_internal_half_groups(matrix,
 
             # in with the new
             if dead_group:
-                outside_space = outside_space + new_group
+                outside_space = outside_space | new_group
                 continue
             internal_groups.append(new_group)
             new_border_cells.append(group_border_cells)
@@ -476,64 +477,93 @@ def crop_shift_cells(inside_groups, border_cells, corner_keeper_groups,
                      outside_space):
     new_inside_groups = []
     new_border_groups = []
+    new_border_coords_groups = []
     new_corner_keeper_groups = []
-    new_outside_space = []  # Outside space becomes a list for each group
-    all_space = set()
+    new_outside_space_groups = []  # Outside space becomes list for each group
+    all_space_groups = []  # for each shape, a set of all space in its coords
+    all_space_global = outside_space.copy()
+    for shape_no, _ in enumerate(inside_groups):
+        all_space_global = (all_space_global | inside_groups[shape_no] |
+                            border_cells[shape_no])
     for shape_no, a_border in enumerate(border_cells):
         # print('a_border:', a_border)
         # print('a_border:', a_border)
+        # Convert Border
+        y_coords = np.array([int(border[0]) for border in a_border])
+        x_coords = np.array([int(border[1]) for border in a_border])
+        shape = np.array([border[2] for border in a_border])
+        y_min = y_coords.min()
+        x_min = x_coords.min()
+        y_coords = y_coords - y_min
+        x_coords = x_coords - x_min
+        border = set(zip(y_coords, x_coords, shape))
+        border_coords = set(zip(y_coords, x_coords))
+        new_border_groups.append(border)
+        new_border_coords_groups.append(border_coords)
+
+        # Convert Inside Space for group
         gr_y_coords = np.array(
             [a_space[0] for a_space in inside_groups[shape_no]])
         gr_x_coords = np.array(
             [a_space[1] for a_space in inside_groups[shape_no]])
-        y_coords = np.array([int(border[0]) for border in a_border])
-        x_coords = np.array([int(border[1]) for border in a_border])
-        shape = np.array([border[2] for border in a_border])
+        gr_y_coords = gr_y_coords - y_min
+        gr_x_coords = gr_x_coords - x_min
+        group = set(zip(gr_y_coords, gr_x_coords))
+        new_inside_groups.append(group)
+
+        # Convert corner keeper group
         ht_eg_y_coords = np.array(
             [int(eg[0]) for eg in corner_keeper_groups[shape_no]])
         ht_eg_x_coords = np.array(
             [int(eg[1]) for eg in corner_keeper_groups[shape_no]])
-        oss_y = np.array([a_space[0] for a_space in outside_space])
-        oss_x = np.array([a_space[1] for a_space in outside_space])
+        ht_eg_y_coords = ht_eg_y_coords - y_min
+        ht_eg_x_coords = ht_eg_x_coords - x_min
+        ht_eg = set(zip(ht_eg_y_coords, ht_eg_x_coords))
+        new_corner_keeper_groups.append(ht_eg)
+
+        # Convert all space to local (to shape) array
+        all_space_y = np.array([a_space[0] for a_space in all_space_global])
+        all_space_x = np.array([a_space[1] for a_space in all_space_global])
+        all_space_y = all_space_y - y_min
+        all_space_x = all_space_x - x_min
+        all_space = set(zip(all_space_y, all_space_x))
+        all_space_groups.append(all_space)
+
         # print('y_coords:', y_coords, ', x_coords:', x_coords)
         # print('ht_eg_y_coords:', ht_eg_y_coords, ', ht_eg_x_coords:',
         #       ht_eg_x_coords)
-        y_min = y_coords.min()
-        x_min = x_coords.min()
-        gr_y_coords = gr_y_coords - y_min
-        gr_x_coords = gr_x_coords - x_min
-        y_coords = y_coords - y_min
-        x_coords = x_coords - x_min
-        ht_eg_y_coords = ht_eg_y_coords - y_min
-        ht_eg_x_coords = ht_eg_x_coords - x_min
-        oss_y = oss_y - y_min
-        oss_x = oss_x - x_min
         # y_max = border_y.max()
-        group = set(zip(gr_y_coords, gr_x_coords))
-        border = set(zip(y_coords, x_coords, shape))
-        ht_eg = set(zip(ht_eg_y_coords, ht_eg_x_coords))
-        outside_space = set(zip(oss_y, oss_x))
-        all_space = all_space | group | border | outside_space
-        new_inside_groups.append(group)
-        new_border_groups.append(border)
-        new_corner_keeper_groups.append(ht_eg)
-        new_outside_space.append(outside_space)
+        # new_outside_space.append(outside_space)
     # print('len(new_inside_groups):', len(new_inside_groups))
     # print('len(new_border_groups):', len(new_border_groups))
     # print('len(new_outside_space):', len(new_outside_space))
 
     # Add other outside space
-    all_outside_space_groups = []
-    for shape_no, _ in enumerate(new_outside_space[:]):
+    new_outside_space_groups = []
+    for shape_no, _ in enumerate(new_inside_groups):
         # print('shape_no:', shape_no)
-        all_outside_space_groups.append(
-            all_space - (new_inside_groups[shape_no] |
-                         new_border_groups[shape_no]))
+        a1 = all_space_groups[shape_no]
+        b1 = new_inside_groups[shape_no]
+        c1 = new_border_coords_groups[shape_no]
+        new_outside_space_groups.append(
+            all_space_groups[shape_no] - (new_inside_groups[shape_no] |
+                                          new_border_coords_groups[shape_no]))
     # print('len(all_outside_space_groups):', len(all_outside_space_groups))
 
+    # Filter outside space to within small range of outside box of shape
+    for shape_no, _ in enumerate(new_inside_groups):
+        all_space_y = (
+            np.array([a_space[0] for a_space in new_border_groups[shape_no]]))
+        all_space_x = (
+            np.array([a_space[1] for a_space in new_border_groups[shape_no]]))
+        rows, cols = (max(all_space_y) + 1), (max(all_space_x) + 1)
+        new_outside_space = {os for os in new_outside_space_groups[shape_no]
+                             if (os[0] >= -1 and os[0] <= rows and
+                                 os[1] >= -1 and os[1] <= cols)}
+        new_outside_space_groups[shape_no] = new_outside_space.copy()
 
     return (new_inside_groups, new_border_groups, new_corner_keeper_groups,
-            all_outside_space_groups)
+            new_outside_space_groups)
 
 
 def create_shapes(border_cells):
@@ -564,27 +594,26 @@ def clean_matrix_shapes(matrix,
                         inside_groups,
                         corner_keeper_groups,
                         outside_spaces_groups):
-
-
-
     # print('inside_groups:', inside_groups)
     rows, cols = matrix.shape
     cleaned_matrix_shapes = []
     horiz_sym = ('-', '+')
     vert_sym = ('|', '+')
     for shape_no, a_matrix_shape in enumerate(matrix_shapes):
-        # print('looking at shape:\n', a_matrix_shape)
+        print('looking at shape:\n', a_matrix_shape)
         # print('inside_group:', inside_groups[shape_no])
         rows, cols = a_matrix_shape.shape
         this_inside_group = inside_groups[shape_no]
         this_ht_end_group = corner_keeper_groups[shape_no]
+        this_outside_space = outside_spaces_groups[shape_no]
         # print('this_ht_end_group:', this_ht_end_group)
+        print('this_outside_space:', this_outside_space)
         intersections = list(zip(*[list(x)
                                    for x in np.where(a_matrix_shape == '+')]))
-        # print('intersections:', intersections)
+        print('intersections:', intersections)
         for intersect in intersections:
             # intersect = list(intersect)
-            # print('intersect:', intersect)
+            print('intersect:', intersect)
             y_coord, x_coord = intersect
             if (y_coord, x_coord) in this_ht_end_group:
                 continue
@@ -600,7 +629,12 @@ def clean_matrix_shapes(matrix,
             m12 = a_matrix_shape[y_coord, x_post] if x_post < cols else 'x'
             # m00 = (a_matrix_shape[y_pre, x_pre]if (y_pre >= 0 and x_pre >= 0)
             #        else '')
-            m01 = a_matrix_shape[y_pre, x_coord] if y_pre >= 0 else 'x'
+            # m01 = a_matrix_shape[y_pre, x_coord] if y_pre >= 0 else 'x'
+
+
+            m01 = (' ' if (y_pre, x_coord) in this_outside_space else
+                   (a_matrix_shape[y_pre, x_coord] if y_pre >= 0 else ' '))
+
             # m02 = (a_matrix_shape[y_pre, x_post]
             #        if (y_pre >= 0 and x_post < cols) else 'x')
             # m20 = (a_matrix_shape[y_post, x_pre]
@@ -609,7 +643,11 @@ def clean_matrix_shapes(matrix,
             # m22 = (a_matrix_shape[y_post, x_post]
             #        if (y_post < rows and x_post < cols) else '')
             # m0_50 = ' ' if (y_0_5_pre, x_pre) in this_inside_group else 'z'
-            m0_51 = ' ' if (y_0_5_pre, x_coord) in this_inside_group else 'z'
+            # m0_51 = ' ' if (y_0_5_pre, x_coord) in this_inside_group else 'z'
+
+
+            m0_51 = (' ' if (y_0_5_pre, x_coord) in this_outside_space else
+                     ' ' if (y_0_5_pre, x_coord) in this_inside_group else'z')
             # m0_52 = ' ' if (y_0_5_pre, x_post) in this_inside_group else 'z'
             # m1_50 = ' ' if (y_0_5_post, x_pre) in this_inside_group else 'z'
             m1_51 = ' ' if (y_0_5_post, x_coord) in this_inside_group else 'z'
@@ -624,30 +662,36 @@ def clean_matrix_shapes(matrix,
 
             # Looking for Horizontal non-intersections to replace
             if m10 in horiz_sym and m12 in horiz_sym:
+                print('found a potential horiz. non-intersection')
                 if ((m01 == ' ' or m0_51 == ' ') and
                         (m21 in ' x' or m1_51 in ' x')):
+                    print('yup - 1')
                     a_matrix_shape[intersect] = '-'
                 elif ((m21 == ' ' or m1_51 == ' ') and
                         (m01 in ' x' or m0_51 in ' x')):
                     # print('replacing at intersect:', intersect, ', -')
+                    print('yup - 2')
                     a_matrix_shape[intersect] = '-'
                 else:
                     pass
-                    # print('not replacing horiz. at intersect:', intersect)
+                    print('not replacing horiz. at intersect:', intersect)
 
             # Looking for Vertical non-intersetions to replace
             if m01 in vert_sym and m21 in vert_sym:
+                print('found a potential vert. non-intersection')
                 # if ((m00 == ' ' and m10 == ' ' and m20 == ' ') or
                 if ((m10 == ' ' or m10_5 == ' ') and
-                    (m12 in ' x' or m11_5 in ' x')):
+                        (m12 in ' x' or m11_5 in ' x')):
+                    print('yup - 1')
                     a_matrix_shape[intersect] = '|'
                 elif ((m12 == ' ' or m11_5 == ' ') and
                       (m10 in ' x' or m10_5 in ' x')):
                     # print('replacing at intersect:', intersect, ', |')
+                    print('yup - 2')
                     a_matrix_shape[intersect] = '|'
                 else:
                     pass
-                    # print('not replacing vert. at intersect:', intersect)
+                    print('not replacing vert. at intersect:', intersect)
             else:
                 pass
                 # print('no replacement')
@@ -676,9 +720,10 @@ class TestMethods(unittest.TestCase):
     # tests = {1: [(9, 16), lambda: game.size(), ]}
 
     def test_basic(self):
+        shapes = {}
+        answers = {}
         # Test 1 - Simple shape
-        print('Test 1: ', end='')
-        shape = """
+        shapes[1] = """
 +----------+
 |          |
 |          |
@@ -688,7 +733,7 @@ class TestMethods(unittest.TestCase):
 |          |
 +----------+
 """.strip('\n')
-        answer = ["""
+        answers[1] = ["""
 +----------+
 |          |
 |          |
@@ -700,21 +745,8 @@ class TestMethods(unittest.TestCase):
 |          |
 +----------+
 """.strip('\n'), ]
-        result = break_evil_pieces(shape)
-        print('result:\n')
-        for a_result in result:
-            print(a_result)
-        print('answer:\n')
-        for an_answer in answer:
-            print(an_answer)
-        pass_result = (collections.Counter(result) ==
-                       collections.Counter(answer))
-        self.assertTrue(pass_result)
-        print('correct!')
 
-        # Test 2 - 3 Boxes
-        print('Test 2: ', end='')
-        shape = """
+        shapes[2] = """
 +------------+
 |            |
 |            |
@@ -725,7 +757,7 @@ class TestMethods(unittest.TestCase):
 +------+-----+
 """.strip('\n')
 
-        answer = ["""
+        answers[2] = ["""
 +------------+
 |            |
 |            |
@@ -742,21 +774,8 @@ class TestMethods(unittest.TestCase):
 |     |
 +-----+
 """.strip('\n'), ]
-        result = break_evil_pieces(shape)
-        print('result:\n')
-        for a_result in result:
-            print(a_result)
-        print('answer:\n')
-        for an_answer in answer:
-            print(an_answer)
-        pass_result = (collections.Counter(result) ==
-                       collections.Counter(answer))
-        self.assertTrue(pass_result)
-        print('correct!')
 
-        # Test 3 - Lego stuff
-        print('Test 3: ', end='')
-        shape = """
+        shapes[3] = """
 +-------------------+--+
 |                   |  |
 |                   |  |
@@ -765,7 +784,7 @@ class TestMethods(unittest.TestCase):
 |  |                   |
 +--+-------------------+
 """.strip('\n')
-        answer = ["""
+        answers[3] = ["""
 +-------------------+
 |                   |
 |                   |
@@ -782,21 +801,8 @@ class TestMethods(unittest.TestCase):
 |                   |
 +-------------------+
 """.strip('\n'), ]
-        result = break_evil_pieces(shape)
-        print('result:\n')
-        for a_result in result:
-            print(a_result)
-        print('answer:\n')
-        for an_answer in answer:
-            print(an_answer)
-        pass_result = (collections.Counter(result) ==
-                       collections.Counter(answer))
-        self.assertTrue(pass_result)
-        print('correct!')
 
-        # Test 4 - Piece of cake! (check for irrelevant spaces)
-        print('Test 4: ', end='')
-        shape = """
+        shapes[4] = """
                            
                            
            +-+             
@@ -811,7 +817,7 @@ class TestMethods(unittest.TestCase):
                            
                            
 """.strip('\n')
-        answer = ["""
+        answers[4] = ["""
 +-+
 | |
 +-+
@@ -827,23 +833,9 @@ class TestMethods(unittest.TestCase):
 +-----------------+
 |                 |
 +-----------------+
-""".strip('\n'), ]
-        result = break_evil_pieces(shape)
-        print('shape:\n', shape)
-        print('result:\n')
-        for a_result in result:
-            print(a_result)
-        print('answer:\n')
-        for an_answer in answer:
-            print(an_answer)
-        pass_result = (collections.Counter(result) ==
-                       collections.Counter(answer))
-        self.assertTrue(pass_result)
-        print('correct!')
+""".strip('\n')]
 
-        # Test 5 - Horseshoe (shapes are not always rectangles!)
-        print('Test 5: ', end='')
-        shape = """
+        shapes[5] = """
 +-----------------+
 |                 |
 |   +-------------+
@@ -855,22 +847,9 @@ class TestMethods(unittest.TestCase):
 |                 |
 +-----------------+
 """.strip('\n')
-        answer = [shape]
-        result = break_evil_pieces(shape)
-        print('result:\n')
-        for a_result in result:
-            print(a_result)
-        print('answer:\n')
-        for an_answer in answer:
-            print(an_answer)
-        pass_result = (collections.Counter(result) ==
-                       collections.Counter(answer))
-        self.assertTrue(pass_result)
-        print('correct!')
+        answers[5] = [shapes[5]]
 
-        # Test 6 - Warming up
-        print('Test 6: ', end='')
-        shape = """
+        shapes[6] = """
 +------------+
 |            |
 |            |
@@ -881,7 +860,7 @@ class TestMethods(unittest.TestCase):
 +------++----+
 """.strip('\n')
 
-        answer = ["""
+        answers[6] = ["""
 +------------+
 |            |
 |            |
@@ -903,44 +882,12 @@ class TestMethods(unittest.TestCase):
 ||
 ++
 """.strip('\n'), ]
-        result = break_evil_pieces(shape)
-        print('result:\n')
-        for a_result in result:
-            print(a_result)
-        print('answer:\n')
-        for an_answer in answer:
-            print(an_answer)
-        pass_result = (collections.Counter(result) ==
-                       collections.Counter(answer))
-        self.assertTrue(pass_result)
-        print('correct!')
 
-        # Test 7 - Don't forget the eggs! (you'll understand later...)
-        print('Test 7: ', end='')
-        shape = """
-++
-++
-""".strip('\n')
-        answer = [shape]
-        result = break_evil_pieces(shape)
-        print('result:\n')
-        for a_result in result:
-            print(a_result)
-        print('answer:\n')
-        for an_answer in answer:
-            print(an_answer)
-        pass_result = (collections.Counter(result) ==
-                       collections.Counter(answer))
-        self.assertTrue(pass_result)
-        print('correct!')
-
-        # Test 8 - Train?
-        print('Test 8: ', end='')
-        shape = """
+        shapes[8] = """
 +----++----++----++----+
 +----++----++----++----+
 """.strip('\n')
-        answer = ["""
+        answers[8] = ["""
 ++
 ++
 """.strip('\n'),
@@ -968,23 +915,8 @@ class TestMethods(unittest.TestCase):
 +----+
 +----+
 """.strip('\n')]
-        result = break_evil_pieces(shape)
-        # print('result:\n')
-        for a_result in result:
-            pass
-            # print(a_result, '\n\n')
-        # print('answer:\n')
-        for an_answer in answer:
-            pass
-            # print(an_answer, '\n\n')
-        pass_result = (collections.Counter(result) ==
-                       collections.Counter(answer))
-        self.assertTrue(pass_result)
-        print('correct!')
 
-        # Test - 9 - Yin-Yang
-        print('Test 9: ', end='')
-        shape = """
+        shapes[9] = """
 +-------------------++--+
 |                   ||  |
 |                   ||  |
@@ -993,7 +925,7 @@ class TestMethods(unittest.TestCase):
 |  ||                   |
 +--++-------------------+
 """.strip('\n')
-        answer = ["""
+        answers[9] = ["""
 +-------------------+
 |                   |
 |                   |
@@ -1020,38 +952,12 @@ class TestMethods(unittest.TestCase):
 |                   |
 +-------------------+
 """.strip('\n')]
-        result = break_evil_pieces(shape)
-        print('result:\n')
-        for a_result in result:
-            print(a_result, '\n\n')
-        print('answer:\n')
-        for an_answer in answer:
-            print(an_answer, '\n\n')
-        pass_result = (collections.Counter(result) ==
-                       collections.Counter(answer))
-        self.assertTrue(pass_result)
-        print('correct!')
 
-        # Test - 10 - Blank
-        print('Test 10: ', end='')
-        shape = """
+        shapes[10] = """
 """.strip('\n')
-        answer = []
-        result = break_evil_pieces(shape)
-        print('result:\n')
-        for a_result in result:
-            print(a_result, '\n\n')
-        print('answer:\n')
-        for an_answer in answer:
-            print(an_answer, '\n\n')
-        pass_result = (collections.Counter(result) ==
-                       collections.Counter(answer))
-        self.assertTrue(pass_result)
-        print('correct!')
+        answers[10] = []
 
-        # Test - 11 - Vortex
-        print('Test 11: ', end='')
-        shape = """
+        shapes[11] = """
 +-----+
 +----+|
 |+--+||
@@ -1061,7 +967,7 @@ class TestMethods(unittest.TestCase):
 |+---+|
 +-----+
 """.strip('\n')
-        answer = ["""
+        answers[11] = ["""
 ++
 ++
 """.strip('\n'),
@@ -1075,22 +981,8 @@ class TestMethods(unittest.TestCase):
 |+---+|
 +-----+
 """.strip('\n')]
-        print('shape:\n', shape)
-        result = break_evil_pieces(shape)
-        print('result:\n')
-        for a_result in result:
-            print(a_result, '\n\n')
-        print('answer:\n')
-        for an_answer in answer:
-            print(an_answer, '\n\n')
-        pass_result = (collections.Counter(result) ==
-                       collections.Counter(answer))
-        self.assertTrue(pass_result)
-        print('correct!')
 
-        # Test - 12 - Vortex 2
-        print('Test 12: ', end='')
-        shape = """
+        shapes[12] = """
           
  +-----+ 
  +----+| 
@@ -1101,7 +993,7 @@ class TestMethods(unittest.TestCase):
  |+---+| 
  +-----+ 
 """.strip('\n')
-        answer = ["""
+        answers[12] = ["""
 ++
 ++
 """.strip('\n'),
@@ -1115,23 +1007,8 @@ class TestMethods(unittest.TestCase):
 |+---+|
 +-----+
 """.strip('\n')]
-        print('shape:\n', shape)
-        result = break_evil_pieces(shape)
-        print('result:\n')
-        for a_result in result:
-            print(a_result, '\n\n')
-        print('answer:\n')
-        for an_answer in answer:
-            print(an_answer, '\n\n')
-        pass_result = (collections.Counter(result) ==
-                       collections.Counter(answer))
-        self.assertTrue(pass_result)
-        print('correct!')
 
-
-        # Test - 13 - 
-        print('Test 13: ', end='')
-        shape = """
+        shapes[13] = """
 +-----------------+
 |+---------------+|
 ||        ++     ||
@@ -1144,27 +1021,9 @@ class TestMethods(unittest.TestCase):
 |+------+
 +-------+
 """.strip('\n')
-        answer = [shape]
-        print('shape:\n', shape)
-        result = break_evil_pieces(shape)
-        print('result:\n')
-        for a_result in result:
-            print(a_result, '\n\n')
-        print('answer:\n')
-        for an_answer in answer:
-            print(an_answer, '\n\n')
-        pass_result = (collections.Counter(result) ==
-                       collections.Counter(answer))
-        self.assertTrue(pass_result)
-        print('correct!')
+        answers[13] = [shapes[13]]
 
-
-        # return
-
-
-        # Test - 14 - 
-        print('Test 14: ', end='')
-        shape = """
+        shapes[14] = """
 +-----------------+
 |+---------------+|
 ||        ++     ||
@@ -1176,7 +1035,7 @@ class TestMethods(unittest.TestCase):
 |+------+
 +-------+
 """.strip('\n')
-        answer = [
+        answers[14] = [
 """
  +---------------+
  |        ++     |
@@ -1196,22 +1055,8 @@ class TestMethods(unittest.TestCase):
 |+------+
 +-------+
 """.strip('\n')]
-        print('shape:\n', shape)
-        result = break_evil_pieces(shape)
-        print('result:\n')
-        for a_result in result:
-            print(a_result, '\n\n')
-        print('answer:\n')
-        for an_answer in answer:
-            print(an_answer, '\n\n')
-        pass_result = (collections.Counter(result) ==
-                       collections.Counter(answer))
-        self.assertTrue(pass_result)
-        print('correct!')
 
-        # Test - 175 - 
-        print('Test 75: ', end='')
-        shape = """
+        shapes[75] = """
   +-----------------+
   |+--------++-----+|
   ||        ++     ||
@@ -1233,7 +1078,7 @@ class TestMethods(unittest.TestCase):
 +----------+|
 +-----------+
 """.strip('\n')
-        answer = [
+        answers[75] = [
 """
            +-----+
            |     |
@@ -1307,22 +1152,8 @@ class TestMethods(unittest.TestCase):
 |+------+
 +-------+
 """.strip('\n')]
-        print('shape:\n', shape)
-        result = break_evil_pieces(shape)
-        print('result:\n')
-        for a_result in result:
-            print(a_result, '\n\n')
-        print('answer:\n')
-        for an_answer in answer:
-            print(an_answer, '\n\n')
-        pass_result = (collections.Counter(result) ==
-                       collections.Counter(answer))
-        self.assertTrue(pass_result)
-        print('correct!')
 
-        # Test - 67 - 
-        print('Test 67: ', end='')
-        shape = """
+        shapes[67] = """
 +----+
 |    |
 |    +----+
@@ -1334,7 +1165,7 @@ class TestMethods(unittest.TestCase):
 |+-------+|
 +---------+
 """.strip('\n')
-        answer = [
+        answers[67] = [
 """
     +---+
     |   |
@@ -1354,22 +1185,8 @@ class TestMethods(unittest.TestCase):
 |+-------+|
 +---------+
 """.strip('\n')]
-        print('shape:\n', shape)
-        result = break_evil_pieces(shape)
-        print('result:\n')
-        for a_result in result:
-            print(a_result, '\n\n')
-        print('answer:\n')
-        for an_answer in answer:
-            print(an_answer, '\n\n')
-        pass_result = (collections.Counter(result) ==
-                       collections.Counter(answer))
-        self.assertTrue(pass_result)
-        print('correct!')
 
-        # Test - 77? - 
-        print('Test 77?: ', end='')
-        shape = """
+        shapes[77] = """
 +-----+
 |     +--+
 +----+   +---+
@@ -1380,7 +1197,7 @@ class TestMethods(unittest.TestCase):
          | |
          +-+
 """.strip('\n')
-        answer = [
+        answers[77] = [
 """
 +-----+
 |     +--+
@@ -1392,18 +1209,39 @@ class TestMethods(unittest.TestCase):
          | |
          +-+
 """.strip('\n')]
-        print('shape:\n', shape)
-        result = break_evil_pieces(shape)
-        print('result:\n')
-        for a_result in result:
-            print(a_result, '\n\n')
-        print('answer:\n')
-        for an_answer in answer:
-            print(an_answer, '\n\n')
-        pass_result = (collections.Counter(result) ==
-                       collections.Counter(answer))
-        self.assertTrue(pass_result)
-        print('correct!')
+
+        for a_test_no in sorted(shapes, key=lambda x: int(x)):
+
+            if a_test_no != 75:
+                continue
+
+            print(''.join(['Test ', str(a_test_no), ': ']), end='')
+            shape = shapes[a_test_no]
+            result = break_evil_pieces(shape)
+            answer = answers[a_test_no]
+            result_counter = collections.Counter(result)
+            answer_counter = collections.Counter(answer)
+            pass_result = result_counter == answer_counter
+            if not pass_result:
+                print('\n'.join(['\nshape:', shape]))
+                print('\n'.join(['\nresult:', '\n\n'.join(result)]))
+                print('\n'.join(['\nanswer:', '\n\n'.join(answer)]))
+                missing_answers = []
+                for an_answer in answer_counter:
+                    if (answer_counter[an_answer] >
+                            result_counter.get(an_answer, 0)):
+                        missing_answers.append(an_answer)
+                print('\n'.join(['\nType of shapes that your answer was ' +
+                                 'missing:'] + missing_answers))
+                extra_results = []
+                for a_result in result_counter:
+                    if result_counter[a_result] > answer_counter.get(a_result,
+                                                                     0):
+                        extra_results.append(a_result)
+                print('\n'.join(['\nType of shapes that your solution ' +
+                                 "shouldn't return:"] + extra_results))
+            self.assertTrue(pass_result)
+            print('correct!')
 
 
 if __name__ == '__main__':
